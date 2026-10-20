@@ -19,7 +19,6 @@
   * { box-sizing:border-box; }
   [hidden] { display:none !important; }
   select:disabled { opacity:.55; }
-  #ordem { grid-column: 1 / -1; }
   html, body { height:100%; }
   body { margin:0; font:15px/1.4 -apple-system, system-ui, sans-serif; background:var(--bg); color:var(--ink); }
   header { padding:calc(env(safe-area-inset-top) + 10px) 12px 10px; border-bottom:1px solid var(--line); background:var(--card); }
@@ -42,11 +41,15 @@
   .ficha { margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); font-size:14px; }
   .ficha a { display:inline-block; margin-top:6px; color:var(--accent); }
   .dica { font-size:13px; color:var(--muted); border-left:3px solid var(--accent); padding-left:8px; margin:6px 0; }
+  .carac { color:var(--ink); font-size:13px; margin-top:2px; }
   .meta, .motivos { color:var(--muted); font-size:13px; }
   .score { min-width:36px; text-align:center; border-radius:999px; padding:1px 8px; font-weight:600; color:#fff; font-size:13px; }
   .novo { font-size:11px; font-weight:600; color:#fff; background:var(--accent); border-radius:4px; padding:1px 5px; margin-left:6px; }
   .alerta { color:var(--warn); font-size:13px; }
   .leaflet-popup-content { font-size:14px; }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background:var(--card); color:var(--ink); }
+  .leaflet-container a.leaflet-popup-close-button { color:var(--muted); }
+  .leaflet-popup-content a { color:var(--accent); }
   @media (max-width: 800px) { .filtros { grid-template-columns:1fr 1fr; } main { grid-template-columns:1fr; grid-template-rows: 45% 55%; } #lista { border-left:0; border-top:1px solid var(--line); } }
 </style>
 </head>
@@ -57,6 +60,7 @@
     <select id="filtro" aria-label="Estado"><option value="">SP e SC</option></select>
     <select id="cidade" aria-label="Cidade"><option value="">Cidade: todas</option></select>
     <select id="bairro" aria-label="Bairro" disabled><option value="">Bairro: escolha a cidade</option></select>
+    <select id="tipo" aria-label="Tipo"><option value="">Tipo: todos</option></select>
     <select id="modalidade" aria-label="Modalidade"><option value="">Modalidade: todas</option></select>
     <select id="desconto_min" aria-label="Desconto mínimo">
       <option value="">Todo desconto</option>
@@ -80,6 +84,14 @@
   </div>
   <button id="mais" type="button" aria-expanded="false">Mais filtros</button>
   <div class="filtros" id="extras" hidden>
+    <select id="quartos" aria-label="Quartos">
+      <option value="">Quartos: todos</option>
+      <option value="1">1+ quarto</option><option value="2">2+ quartos</option><option value="3">3+ quartos</option>
+    </select>
+    <select id="vagas" aria-label="Vagas">
+      <option value="">Vagas: todas</option>
+      <option value="0">Sem vaga</option><option value="1">1+ vaga</option><option value="2">2+ vagas</option>
+    </select>
     <input id="preco_max" type="number" inputmode="numeric" placeholder="Preço máx. (R$)" aria-label="Preço máximo">
     <select id="periodo" aria-label="Período"><option value="">Qualquer data</option><option value="1">Novos (24h)</option><option value="7">Últimos 7 dias</option></select>
     <input id="busca" placeholder="Bairro, rua, tipo…" aria-label="Busca">

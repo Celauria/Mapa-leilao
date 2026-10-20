@@ -15,6 +15,19 @@ let TODOS = [], marcadores = {};
 const descReal = im => im.valor_avaliacao > 0 && im.preco != null ? (1 - im.preco / im.valor_avaliacao) * 100 : (im.desconto ?? 0);
 const fmtDesc = d => d >= 0.5 ? `-${d.toFixed(0)}%` : d <= -0.5 ? `+${(-d).toFixed(0)}% acima` : "sem desconto";
 
+const m2 = v => v ? `${v.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} m²` : null;
+const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+// "2 quartos · 1 vaga · 42 m²" — só o que a Caixa informou
+function caracteristicas(im, completo = false) {
+  const p = [];
+  if (im.quartos) p.push(plural(im.quartos, "quarto", "quartos"));
+  if (im.vagas != null && im.quartos) p.push(im.vagas ? plural(im.vagas, "vaga", "vagas") : "sem vaga");
+  if (im.area_privativa) p.push(completo ? `${m2(im.area_privativa)} privativos` : m2(im.area_privativa));
+  if (completo && im.area_total && im.area_total !== im.area_privativa) p.push(`${m2(im.area_total)} totais`);
+  if (im.area_terreno && (completo || !im.area_privativa)) p.push(`terreno ${m2(im.area_terreno)}`);
+  return p.join(" · ");
+}
+
 function ficha(im) {
   const box = el("div");
   box.append(el("strong", null, `${im.tipo || "Imóvel"} — ${im.bairro || ""}`));
@@ -23,7 +36,10 @@ function ficha(im) {
     box.append(el("div", "meta", `Posição aproximada (centro do ${im.geo_precisao === "cidade" ? "município" : "bairro"})`));
   const dr = descReal(im);
   box.append(el("div", null, `${brl(im.preco)} · avaliação ${brl(im.valor_avaliacao)} · ${dr >= 0.5 ? dr.toFixed(0) + "% de desconto" : fmtDesc(dr)}`));
-  if (im.area_privativa) box.append(el("div", "meta", `${im.area_privativa} m² · ${brl(im.preco / im.area_privativa)}/m²`));
+  const car = caracteristicas(im, true);
+  if (car) box.append(el("div", "carac", car));
+  const areaRef = im.area_privativa || im.area_terreno;
+  if (areaRef) box.append(el("div", "meta", `${brl(im.preco / areaRef)}/m² ${im.area_privativa ? "privativo" : "de terreno"}`));
   box.append(el("div", "meta", `${im.modalidade || ""}${im.financiamento ? " · financiamento: " + im.financiamento : ""}`));
   if (/SFI/i.test(im.modalidade || "") && dr < 0.5)
     box.append(el("div", "dica", "1º leilão parte da avaliação. Se não houver lance, o 2º leilão costuma partir do valor da dívida, às vezes bem menor — confira datas e valores no edital."));
@@ -49,6 +65,8 @@ function item(im) {
   l1.append(p, el("span", dr >= 0.5 ? "desc" : "desc nulo", fmtDesc(dr)));
   const sc = el("span", "score", im.score); sc.style.background = cor(im.score); l1.append(sc);
   d.append(l1, el("div", null, `${im.tipo || "Imóvel"} · ${im.bairro || ""}, ${im.cidade || ""}/${im.uf}`));
+  const car = caracteristicas(im);
+  if (car) d.append(el("div", "carac", car));
   d.append(el("div", "meta", im.modalidade || ""));
   if (im.motivos?.length) d.append(el("div", "motivos", im.motivos.join(" · ")));
   d.onclick = ev => {
@@ -74,6 +92,9 @@ const TESTES = {
   cidade:        (im, v) => `${im.cidade}|${im.uf}` === v,
   bairro:        (im, v) => (im.bairro || "") === v,
   modalidade:    (im, v) => im.modalidade === v,
+  tipo:          (im, v) => im.tipo === v,
+  quartos:       (im, v) => (im.quartos || 0) >= +v,
+  vagas:         (im, v) => +v === 0 ? im.vagas === 0 : (im.vagas || 0) >= +v,
   financiamento: (im, v) => (im.financiamento || "").trim() === v,
   desconto_min:  (im, v) => descReal(im) >= +v,
   preco_max:     (im, v) => +v <= 0 || (im.preco ?? 0) <= +v,
@@ -126,6 +147,10 @@ function atualizarOpcoes(vals) {
       .map(b => ({ valor: b, rotulo: `${b} (${porBairro[b]})`, n: porBairro[b] })));
     selBairro.disabled = false;
   }
+
+  const porTipo = contar(filtrar(vals, ["tipo"]), im => im.tipo);
+  opcoes("tipo", "Tipo: todos", Object.entries(porTipo).sort((a, b) => b[1] - a[1])
+    .map(([t, n]) => ({ valor: t, rotulo: `${t} (${fmt(n)})`, n })));
 
   const porMod = contar(filtrar(vals, ["modalidade"]), im => im.modalidade);
   opcoes("modalidade", "Modalidade: todas", Object.entries(porMod).sort((a, b) => b[1] - a[1])

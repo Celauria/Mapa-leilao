@@ -56,15 +56,27 @@ def _area(txt: str):
 
 
 def _detalhes(descricao: str) -> dict:
-    """Extrai tipo, área privativa e quartos do texto livre de descrição."""
+    """Extrai tipo, áreas, quartos e vagas do texto livre de descrição da Caixa.
+
+    Ex.: 'Casa, 90.02 de área total, 56.25 de área privativa, 134.46 de área do terreno,
+          2 qto(s), a.serv, WC, 1 sala(s), cozinha, 1 vaga(s) de garagem.'
+    """
     d = descricao or ""
-    tipo = d.split(",")[0].strip() if d else None
-    area = re.search(r"([\d.,]+)\s*(?:m[²2])?\s*de\s*.rea\s*privativa", d, re.I)
-    quartos = re.search(r"(\d+)\s*qto", d, re.I)
+    def area(nome):
+        m = re.search(r"([\d.,]+)\s*(?:m[²2])?\s*de\s*.rea\s*" + nome, d, re.I)
+        return _area(m.group(1)) if m else None
+    def inteiro(padrao):
+        m = re.search(padrao, d, re.I)
+        return int(m.group(1)) if m else None
+    vagas = inteiro(r"(\d+)\s*vaga")
     return {
-        "tipo": tipo,
-        "area_privativa": _area(area.group(1)) if area else None,
-        "quartos": int(quartos.group(1)) if quartos else None,
+        "tipo": d.split(",")[0].strip() if d else None,
+        "area_total": area("total"),
+        "area_privativa": area("privativa"),
+        "area_terreno": area("do\\s*terreno"),
+        "quartos": inteiro(r"(\d+)\s*qto"),
+        # sem menção a vaga numa descrição detalhada = sem vaga
+        "vagas": vagas if vagas is not None else (0 if "qto" in d.lower() else None),
     }
 
 
@@ -153,14 +165,18 @@ def gravar(imoveis: list[dict], fonte: str = "caixa", uf: str | None = None) -> 
             anterior[iid] = atual["preco"]
         con.execute(
             """INSERT INTO imovel (id, fonte, codigo, uf, cidade, bairro, endereco, preco, valor_avaliacao,
-                   desconto, descricao, tipo, area_privativa, quartos, modalidade, link, financiamento)
+                   desconto, descricao, tipo, area_privativa, area_total, area_terreno, quartos, vagas,
+                   modalidade, link, financiamento)
                VALUES (:id,:fonte,:codigo,:uf,:cidade,:bairro,:endereco,:preco,:valor_avaliacao,
-                   :desconto,:descricao,:tipo,:area_privativa,:quartos,:modalidade,:link,:financiamento)
+                   :desconto,:descricao,:tipo,:area_privativa,:area_total,:area_terreno,:quartos,:vagas,
+                   :modalidade,:link,:financiamento)
                ON CONFLICT(id) DO UPDATE SET preco=excluded.preco, desconto=excluded.desconto,
                    valor_avaliacao=excluded.valor_avaliacao, modalidade=excluded.modalidade,
-                   link=excluded.link, financiamento=excluded.financiamento, ativo=1, ultima_vez=datetime('now')""",
+                   link=excluded.link, financiamento=excluded.financiamento, descricao=excluded.descricao,
+                   tipo=excluded.tipo, area_privativa=excluded.area_privativa, area_total=excluded.area_total,
+                   area_terreno=excluded.area_terreno, quartos=excluded.quartos, vagas=excluded.vagas, ativo=1, ultima_vez=datetime('now')""",
             {**{k: im.get(k) for k in COLUNAS.values()}, "id": iid, "fonte": fonte,
-             "tipo": im.get("tipo"), "area_privativa": im.get("area_privativa"), "quartos": im.get("quartos")},
+             **{k: im.get(k) for k in ("tipo", "area_privativa", "area_total", "area_terreno", "quartos", "vagas")}},
         )
         if atual is None or atual["preco"] != im["preco"]:
             con.execute("INSERT INTO historico_preco (imovel_id, preco) VALUES (?,?)", (iid, im["preco"]))
