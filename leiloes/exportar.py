@@ -12,7 +12,7 @@ from .db import conectar
 from .score import calcular, referencia_m2
 
 CAMPOS = ("id", "uf", "cidade", "bairro", "endereco", "preco", "valor_avaliacao", "desconto", "tipo",
-          "area_privativa", "area_total", "area_terreno", "quartos", "vagas", "modalidade", "link", "financiamento", "lat", "lon", "geo_precisao", "primeira_vez")
+          "area_privativa", "area_total", "area_terreno", "quartos", "vagas", "modalidade", "link", "financiamento", "banco", "praca1_valor", "praca1_data", "praca2_valor", "praca2_data", "lat", "lon", "geo_precisao", "primeira_vez")
 
 
 def exportar(destino: Path | None = None) -> Path:

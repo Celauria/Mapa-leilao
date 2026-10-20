@@ -12,8 +12,12 @@ let TODOS = [], marcadores = {};
 
 // Desconto real sobre a avaliação. A Caixa publica 0% quando o preço fica acima dela;
 // aqui o valor negativo aparece, para não esconder isso.
-const descReal = im => im.valor_avaliacao > 0 && im.preco != null ? (1 - im.preco / im.valor_avaliacao) * 100 : (im.desconto ?? 0);
-const fmtDesc = d => d >= 0.5 ? `-${d.toFixed(0)}%` : d <= -0.5 ? `+${(-d).toFixed(0)}% acima` : "sem desconto";
+const descReal = im => im.valor_avaliacao > 0 && im.preco != null ? (1 - im.preco / im.valor_avaliacao) * 100 : im.desconto;
+const fmtDesc = d => d == null ? "" : d >= 0.5 ? `-${d.toFixed(0)}%` : d <= -0.5 ? `+${(-d).toFixed(0)}% acima` : "sem desconto";
+const hoje = () => new Date().toISOString().slice(0, 10);
+// menor valor pelo qual ainda pode sair (2ª praça futura costuma ser mais barata)
+const precoMin = im => Math.min(...[im.preco, im.praca2_valor && (im.praca2_data || "") >= hoje() ? im.praca2_valor : null].filter(v => v));
+const dataBR = d => d ? `${d.slice(8, 10)}/${d.slice(5, 7)} ${d.slice(11, 16)}` : "";
 
 const m2 = v => v ? `${v.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} m²` : null;
 const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
@@ -35,13 +39,27 @@ function ficha(im) {
   if (im.geo_precisao && !im.geo_precisao.startsWith("endereco"))
     box.append(el("div", "meta", `Posição aproximada (centro do ${im.geo_precisao === "cidade" ? "município" : "bairro"})`));
   const dr = descReal(im);
-  box.append(el("div", null, `${brl(im.preco)} · avaliação ${brl(im.valor_avaliacao)} · ${dr >= 0.5 ? dr.toFixed(0) + "% de desconto" : fmtDesc(dr)}`));
+  if (im.praca1_valor) {
+    const pr = el("div", "pracas");
+    [[im.praca2_valor ? "1º leilão" : "Lance inicial", im.praca1_valor, im.praca1_data], ["2º leilão", im.praca2_valor, im.praca2_data]]
+      .filter(([, v]) => v).forEach(([rot, v, d]) => {
+        const l = el("div", (d || "") < hoje() ? "passou" : null);
+        l.append(el("span", null, `${rot} · ${dataBR(d)}`), el("strong", null, brl(v)));
+        pr.append(l);
+      });
+    box.append(pr);
+    if (dr != null) box.append(el("div", "meta", im.praca2_valor
+      ? (dr >= 0.5 ? `2º leilão ${dr.toFixed(0)}% abaixo do 1º` : `2º leilão ${fmtDesc(dr).replace("acima", "acima do 1º")}`)
+      : (dr >= 0.5 ? `${dr.toFixed(0)}% de desconto (informado pelo leiloeiro)` : fmtDesc(dr))));
+  } else {
+    box.append(el("div", null, `${brl(im.preco)} · avaliação ${brl(im.valor_avaliacao)} · ${dr >= 0.5 ? dr.toFixed(0) + "% de desconto" : fmtDesc(dr)}`));
+  }
   const car = caracteristicas(im, true);
   if (car) box.append(el("div", "carac", car));
   const areaRef = im.area_privativa || im.area_terreno;
   if (areaRef) box.append(el("div", "meta", `${brl(im.preco / areaRef)}/m² ${im.area_privativa ? "privativo" : "de terreno"}`));
-  box.append(el("div", "meta", `${im.modalidade || ""}${im.financiamento ? " · financiamento: " + im.financiamento : ""}`));
-  if (/SFI/i.test(im.modalidade || "") && dr < 0.5)
+  box.append(el("div", "meta", `${im.banco ? im.banco + " · " : ""}${im.modalidade || ""}${im.financiamento ? " · financiamento: " + im.financiamento : ""}`));
+  if (/SFI/i.test(im.modalidade || "") && (dr ?? 0) < 0.5)
     box.append(el("div", "dica", "1º leilão parte da avaliação. Se não houver lance, o 2º leilão costuma partir do valor da dívida, às vezes bem menor — confira datas e valores no edital."));
   if (im.edital) {
     box.append(el("div", null, im.edital.resumo || ""));
@@ -59,15 +77,20 @@ function diasDesde(iso) { return iso ? (Date.now() - Date.parse(iso.replace(" ",
 function item(im) {
   const d = el("div", "item");
   const l1 = el("div", "linha");
-  const p = el("span", "preco", brl(im.preco));
+  const pm = precoMin(im);
+  const p = el("span", "preco", pm < im.preco ? `${brl(pm)}*` : brl(im.preco));
+  if (pm < im.preco) p.title = "valor do 2º leilão";
   if (diasDesde(im.primeira_vez) <= 1) p.append(el("span", "novo", "NOVO"));
   const dr = descReal(im);
-  l1.append(p, el("span", dr >= 0.5 ? "desc" : "desc nulo", fmtDesc(dr)));
+  l1.append(p, el("span", (dr ?? 0) >= 0.5 ? "desc" : "desc nulo", fmtDesc(dr)));
   const sc = el("span", "score", im.score); sc.style.background = cor(im.score); l1.append(sc);
   d.append(l1, el("div", null, `${im.tipo || "Imóvel"} · ${im.bairro || ""}, ${im.cidade || ""}/${im.uf}`));
   const car = caracteristicas(im);
   if (car) d.append(el("div", "carac", car));
-  d.append(el("div", "meta", im.modalidade || ""));
+  const meta = el("div", "meta", im.modalidade || "");
+  if (im.banco && im.banco !== "Caixa") meta.append(el("span", "banco", im.banco));
+  if (im.praca2_valor && (im.praca2_data || "") >= hoje()) meta.append(` · 2º leilão ${dataBR(im.praca2_data).slice(0, 5)}`);
+  d.append(meta);
   if (im.motivos?.length) d.append(el("div", "motivos", im.motivos.join(" · ")));
   d.onclick = ev => {
     if (ev.target.closest("a")) return;  // link do anúncio dentro da ficha
@@ -88,6 +111,7 @@ function item(im) {
 // Cada filtro é um teste. As opções de cada seletor são contadas aplicando todos os
 // OUTROS filtros (busca facetada): o que não existe com a seleção atual some da lista.
 const TESTES = {
+  banco:         (im, v) => (im.banco || "Caixa") === v,
   filtro:        (im, v) => im.filtro === v,
   cidade:        (im, v) => `${im.cidade}|${im.uf}` === v,
   bairro:        (im, v) => (im.bairro || "") === v,
@@ -96,8 +120,8 @@ const TESTES = {
   quartos:       (im, v) => (im.quartos || 0) >= +v,
   vagas:         (im, v) => +v === 0 ? im.vagas === 0 : (im.vagas || 0) >= +v,
   financiamento: (im, v) => (im.financiamento || "").trim() === v,
-  desconto_min:  (im, v) => descReal(im) >= +v,
-  preco_max:     (im, v) => +v <= 0 || (im.preco ?? 0) <= +v,
+  desconto_min:  (im, v) => (descReal(im) ?? -Infinity) >= +v,
+  preco_max:     (im, v) => +v <= 0 || precoMin(im) <= +v,
   periodo:       (im, v) => diasDesde(im.primeira_vez) <= +v,
   busca:         (im, v) => norm(`${im.bairro} ${im.endereco} ${im.tipo} ${im.cidade}`).includes(norm(v)),
 };
@@ -118,6 +142,10 @@ function opcoes(id, rotuloTodos, itens) {
 
 function atualizarOpcoes(vals) {
   // Estado: ignora também a cidade, para dar para trocar de estado com uma cidade escolhida.
+  const porBanco = contar(filtrar(vals, ["banco"]), im => im.banco || "Caixa");
+  opcoes("banco", "Banco: todos", Object.entries(porBanco).sort((a, b) => b[1] - a[1])
+    .map(([b, n]) => ({ valor: b, rotulo: `${b} (${fmt(n)})`, n })));
+
   const porEstado = contar(filtrar(vals, ["filtro", "cidade", "bairro"]), im => im.filtro);
   const nEst = Object.values(porEstado).reduce((a, b) => a + b, 0);
   opcoes("filtro", `SP e SC (${fmt(nEst)})`, Object.keys(porEstado).sort()
@@ -169,7 +197,7 @@ function render() {
   vals = valores();  // a cidade pode ter sido limpa acima
   const dados = filtrar(vals);
   const ordem = document.getElementById("ordem").value;
-  const chave = { score: im => -im.score, desconto: im => -descReal(im), preco: im => im.preco ?? 1e12,
+  const chave = { score: im => -im.score, desconto: im => -(descReal(im) ?? -1e9), preco: im => precoMin(im) || 1e12,
                   recentes: im => -Date.parse((im.primeira_vez || "1970-01-01").replace(" ", "T") + "Z") }[ordem] || (im => -im.score);
   dados.sort((a, b) => chave(a) - chave(b));
   camada.clearLayers(); marcadores = {};

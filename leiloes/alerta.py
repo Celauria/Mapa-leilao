@@ -30,12 +30,22 @@ def carregar_filtros(caminho=None) -> dict:
     return json.loads(Path(caminho or RAIZ / "filtros.json").read_text(encoding="utf-8"))
 
 
+def preco_minimo(im: dict):
+    """Menor valor pelo qual o imóvel ainda pode sair: no leilão de 2 praças, a 2ª praça
+    (se ainda não passou) costuma ser mais barata que a 1ª."""
+    valores = [im.get("preco")]
+    if im.get("praca2_valor") and (im.get("praca2_data") or "") >= datetime.now().strftime("%Y-%m-%d"):
+        valores.append(im["praca2_valor"])
+    valores = [v for v in valores if v]
+    return min(valores) if valores else 0
+
+
 def bate(im: dict, f: dict) -> bool:
     if f.get("uf") and im.get("uf") != f["uf"]:
         return False
     if f.get("cidade") and _norm(im.get("cidade") or "") != _norm(f["cidade"]):
         return False
-    if f.get("preco_max") and (im.get("preco") or 0) > f["preco_max"]:
+    if f.get("preco_max") and preco_minimo(im) > f["preco_max"]:
         return False
     if f.get("desconto_min") and (im.get("desconto") or 0) < f["desconto_min"]:
         return False
@@ -86,7 +96,7 @@ def texto(achados: list[dict]) -> str:
                 preco = f"{_brl(a['preco_anterior'])} → {preco}"
             area = f" · {a['area_privativa']:.0f} m²" if a.get("area_privativa") else ""
             linhas.append(f"• {preco} (-{a.get('desconto') or 0:.0f}%) {a.get('tipo') or 'Imóvel'}{area} · "
-                          f"{a.get('bairro')}, {a.get('cidade')} · {a.get('modalidade')}\n  {a.get('link')}")
+                          f"{a.get('bairro')}, {a.get('cidade')} · {a.get('banco') or ''} {a.get('modalidade')}\n  {a.get('link')}")
     return "\n".join(linhas)
 
 
@@ -140,7 +150,13 @@ def enviar_email(msg: str, anexo: Path):
 def rodar(teste: bool = False, caminho_filtros=None, resultado_coleta=None) -> list[dict]:
     cfg = carregar_filtros(caminho_filtros)
     ufs = sorted({f["uf"] for f in cfg["filtros"]})
-    resultado = resultado_coleta or coleta_caixa.coletar(ufs)
+    if resultado_coleta is None:
+        resultado = coleta_caixa.coletar(ufs)
+        if cfg.get("bancos_zuk", True):
+            from . import coleta_zuk
+            resultado.update(coleta_zuk.coletar())
+    else:
+        resultado = resultado_coleta
     for uf, r in resultado.items():
         print(f"{uf}: {r['total']} imóveis · {len(r['novos'])} novos · {len(r['preco_alterado'])} preço alterado")
     achados = montar(resultado, cfg)

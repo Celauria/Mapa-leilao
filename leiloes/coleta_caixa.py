@@ -149,11 +149,24 @@ def _diagnostico(uf: str, conteudo: bytes):
     return f"{uf}: resposta não é o CSV da Caixa. Início do conteúdo: {trecho!r}"
 
 
-def gravar(imoveis: list[dict], fonte: str = "caixa", uf: str | None = None) -> dict:
-    """Upsert. Devolve contagem de novos, preço alterado e removidos."""
+# Colunas que as fontes podem preencher (as demais — posição, datas — são do sistema).
+CAMPOS_DADOS = ("uf", "cidade", "bairro", "endereco", "preco", "valor_avaliacao", "desconto", "descricao",
+                "tipo", "area_privativa", "area_total", "area_terreno", "quartos", "vagas", "modalidade",
+                "link", "financiamento", "banco", "praca1_valor", "praca1_data", "praca2_valor", "praca2_data")
+
+
+def gravar(imoveis: list[dict], fonte: str = "caixa", uf: str | None = None, banco: str | None = None) -> dict:
+    """Upsert. Devolve contagem de novos, preço alterado e removidos.
+
+    O que sumiu da lista é marcado como inativo (vendido/retirado): na Caixa por UF,
+    nos leiloeiros por banco — só quando a coleta daquele recorte foi completa.
+    """
     con = conectar()
     novos, alterados, anterior = [], [], {}
     vistos = set()
+    cols = ", ".join(CAMPOS_DADOS)
+    params = ", ".join(f":{c}" for c in CAMPOS_DADOS)
+    atualiza = ", ".join(f"{c}=excluded.{c}" for c in CAMPOS_DADOS if c not in ("uf", "cidade", "bairro", "endereco"))
     for im in imoveis:
         iid = f"{fonte}:{im['codigo']}"
         vistos.add(iid)
@@ -163,28 +176,22 @@ def gravar(imoveis: list[dict], fonte: str = "caixa", uf: str | None = None) -> 
         elif atual["preco"] != im["preco"]:
             alterados.append(iid)
             anterior[iid] = atual["preco"]
+        dados = {c: im.get(c) for c in CAMPOS_DADOS}
+        if fonte == "caixa":
+            dados["banco"] = "Caixa"
         con.execute(
-            """INSERT INTO imovel (id, fonte, codigo, uf, cidade, bairro, endereco, preco, valor_avaliacao,
-                   desconto, descricao, tipo, area_privativa, area_total, area_terreno, quartos, vagas,
-                   modalidade, link, financiamento)
-               VALUES (:id,:fonte,:codigo,:uf,:cidade,:bairro,:endereco,:preco,:valor_avaliacao,
-                   :desconto,:descricao,:tipo,:area_privativa,:area_total,:area_terreno,:quartos,:vagas,
-                   :modalidade,:link,:financiamento)
-               ON CONFLICT(id) DO UPDATE SET preco=excluded.preco, desconto=excluded.desconto,
-                   valor_avaliacao=excluded.valor_avaliacao, modalidade=excluded.modalidade,
-                   link=excluded.link, financiamento=excluded.financiamento, descricao=excluded.descricao,
-                   tipo=excluded.tipo, area_privativa=excluded.area_privativa, area_total=excluded.area_total,
-                   area_terreno=excluded.area_terreno, quartos=excluded.quartos, vagas=excluded.vagas, ativo=1, ultima_vez=datetime('now')""",
-            {**{k: im.get(k) for k in COLUNAS.values()}, "id": iid, "fonte": fonte,
-             **{k: im.get(k) for k in ("tipo", "area_privativa", "area_total", "area_terreno", "quartos", "vagas")}},
+            f"""INSERT INTO imovel (id, fonte, codigo, {cols}) VALUES (:id, :fonte, :codigo, {params})
+                ON CONFLICT(id) DO UPDATE SET {atualiza}, ativo=1, ultima_vez=datetime('now')""",
+            {**dados, "id": iid, "fonte": fonte, "codigo": im["codigo"]},
         )
         if atual is None or atual["preco"] != im["preco"]:
             con.execute("INSERT INTO historico_preco (imovel_id, preco) VALUES (?,?)", (iid, im["preco"]))
     removidos = 0
-    if uf:  # o que sumiu da lista desta UF foi vendido/retirado
-        cur = con.execute("SELECT id FROM imovel WHERE fonte=? AND uf=? AND ativo=1", (fonte, uf))
+    if uf or banco:
+        campo, valor = ("uf", uf) if uf else ("banco", banco)
+        cur = con.execute(f"SELECT id FROM imovel WHERE fonte=? AND {campo}=? AND ativo=1", (fonte, valor))
         sumidos = [r["id"] for r in cur if r["id"] not in vistos]
-        con.executemany("UPDATE imovel SET ativo=0 WHERE id=?", [(s,) for s in sumidos])
+        con.executemany("UPDATE imovel SET ativo=0 WHERE id=?", [(x,) for x in sumidos])
         removidos = len(sumidos)
     con.commit()
     return {"total": len(imoveis), "novos": novos, "preco_alterado": alterados,

@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS imovel (
     uf            TEXT, cidade TEXT, bairro TEXT, endereco TEXT,
     preco         REAL, valor_avaliacao REAL, desconto REAL,
     descricao     TEXT, tipo TEXT, area_privativa REAL, quartos INTEGER,
-    area_total    REAL, area_terreno REAL, vagas INTEGER,
+    area_total    REAL, area_terreno REAL, vagas INTEGER, banco TEXT,
+    praca1_valor  REAL, praca1_data TEXT, praca2_valor REAL, praca2_data TEXT,
     modalidade    TEXT, link TEXT, financiamento TEXT,
     lat           REAL, lon REAL, geo_precisao TEXT,
     ativo         INTEGER DEFAULT 1,
@@ -55,7 +56,8 @@ def conectar(path: Path = DB_PATH) -> sqlite3.Connection:
     con.executescript(SCHEMA)
     colunas = {r[1] for r in con.execute("PRAGMA table_info(imovel)")}
     novas = {"financiamento": "TEXT", "geo_precisao": "TEXT", "area_total": "REAL",
-             "area_terreno": "REAL", "vagas": "INTEGER"}
+             "area_terreno": "REAL", "vagas": "INTEGER", "banco": "TEXT", "praca1_valor": "REAL",
+             "praca1_data": "TEXT", "praca2_valor": "REAL", "praca2_data": "TEXT"}
     for col, tipo in novas.items():  # bancos criados antes destas colunas
         if col not in colunas:
             con.execute(f"ALTER TABLE imovel ADD COLUMN {col} {tipo}")

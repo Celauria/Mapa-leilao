@@ -19,6 +19,7 @@
   * { box-sizing:border-box; }
   [hidden] { display:none !important; }
   select:disabled { opacity:.55; }
+  #ordem { grid-column: 1 / -1; }
   html, body { height:100%; }
   body { margin:0; font:15px/1.4 -apple-system, system-ui, sans-serif; background:var(--bg); color:var(--ink); }
   header { padding:calc(env(safe-area-inset-top) + 10px) 12px 10px; border-bottom:1px solid var(--line); background:var(--card); }
@@ -44,6 +45,10 @@
   .carac { color:var(--ink); font-size:13px; margin-top:2px; }
   .meta, .motivos { color:var(--muted); font-size:13px; }
   .score { min-width:36px; text-align:center; border-radius:999px; padding:1px 8px; font-weight:600; color:#fff; font-size:13px; }
+  .banco { font-size:11px; font-weight:600; color:var(--muted); border:1px solid var(--line); border-radius:4px; padding:0 5px; margin-left:6px; }
+  .pracas { margin:6px 0; font-size:13px; }
+  .pracas div { display:flex; justify-content:space-between; gap:8px; }
+  .pracas .passou { color:var(--muted); text-decoration:line-through; }
   .novo { font-size:11px; font-weight:600; color:#fff; background:var(--accent); border-radius:4px; padding:1px 5px; margin-left:6px; }
   .alerta { color:var(--warn); font-size:13px; }
   .leaflet-popup-content { font-size:14px; }
@@ -57,6 +62,7 @@
 <header>
   <div class="topo"><h1>Mapa de Leilões</h1><span id="contagem">carregando…</span></div>
   <div class="filtros">
+    <select id="banco" aria-label="Banco"><option value="">Banco: todos</option></select>
     <select id="filtro" aria-label="Estado"><option value="">SP e SC</option></select>
     <select id="cidade" aria-label="Cidade"><option value="">Cidade: todas</option></select>
     <select id="bairro" aria-label="Bairro" disabled><option value="">Bairro: escolha a cidade</option></select>
