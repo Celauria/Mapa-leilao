@@ -16,35 +16,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Baixar amostra do ITBI de São Paulo
+      - name: Baixar páginas de imóveis do Zuk
         run: |
-          set +e
-          pip install -q openpyxl
           mkdir -p amostras && cd amostras
-          curl -s -L --max-time 600 -o itbi2026.xlsx \
-            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36" \
-            -H "Accept: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,*/*" -H "Accept-Language: pt-BR" \
-            -e "https://prefeitura.sp.gov.br/web/fazenda/w/acesso_a_informacao/31501" \
-            "https://prefeitura.sp.gov.br/cidade/secretarias/upload/fazenda/arquivos/itbi/GUIAS%20DE%20ITBI%20PAGAS%20%2830092026%29.xlsx" \
-            -w "itbi2026: HTTP %{http_code} %{content_type} %{size_download} bytes\n" | tee itbi_resumo.txt
-          head -c 400 itbi2026.xlsx | file - >> itbi_resumo.txt
-          head -c 1500 itbi2026.xlsx | strings | head -20 >> itbi_resumo.txt
-          python - <<'PY' 2>> itbi_resumo.txt
-          import openpyxl, csv, itertools
-          wb = openpyxl.load_workbook("itbi2026.xlsx", read_only=True)
-          with open("itbi_resumo.txt", "a") as r:
-              for ws in wb.worksheets:
-                  r.write(f"aba: {ws.title} dims={ws.max_row}x{ws.max_column}\n")
-              ws = max(wb.worksheets, key=lambda w: w.max_row or 0)
-              with open("itbi_amostra.csv", "w", newline="") as f:
-                  w = csv.writer(f)
-                  for row in itertools.islice(ws.iter_rows(values_only=True), 60):
-                      w.writerow(row)
-          PY
-          rm -f itbi2026.xlsx; ls -la; cat itbi_resumo.txt; exit 0
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+          for banco in banco-itau banco-bradesco banco-santander; do
+            curl -s -L -A "$UA" -o lista.html "https://www.portalzuk.com.br/leilao-de-imoveis/v/$banco"; sleep 3
+            n=0
+            for url in $(grep -o 'https://www.portalzuk.com.br/imovel/sp/[^"]*' lista.html | sort -u | head -2); do
+              n=$((n+1)); curl -s -L -A "$UA" -o "zuk_imovel_${banco}_$n.html" "$url"; echo "$url" >> urls.txt; sleep 3
+            done
+          done
+          rm -f lista.html; ls -la
       - name: Publicar no branch amostras
         run: |
           cd amostras

@@ -13,6 +13,7 @@ import os
 import re
 import time
 import unicodedata
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime
@@ -26,7 +27,8 @@ BANCOS = {
     "Itaú": "banco-itau",
 }
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
-PAUSA = 2.0
+PAUSA = 3.0          # entre páginas
+PAUSA_BANCO = 20     # entre um banco e outro
 MAX_PAGINAS = 60  # 30 + 60×20 ≈ 1.200 imóveis por banco, folga para o volume atual
 
 
@@ -132,20 +134,30 @@ class _Sessao:
         self.op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
         self.op.addheaders = [("User-Agent", UA), ("Accept-Language", "pt-BR,pt;q=0.9")]
 
+    def _abrir(self, req, tentativas: int = 4) -> str:
+        """Abre com pausa entre pedidos; em 429/503 espera o que o site pedir (Retry-After) e tenta de novo."""
+        for t in range(tentativas):
+            try:
+                with self.op.open(req, timeout=60) as r:
+                    corpo = r.read().decode("utf-8", "replace")
+                time.sleep(PAUSA)
+                return corpo
+            except urllib.error.HTTPError as exc:
+                if exc.code not in (429, 503) or t == tentativas - 1:
+                    raise
+                espera = exc.headers.get("Retry-After")
+                espera = int(espera) if espera and espera.isdigit() else 30 * (t + 1)
+                print(f"Zuk pediu calma (HTTP {exc.code}); aguardando {espera}s")
+                time.sleep(min(espera, 180))
+
     def get(self, url):
-        with self.op.open(url, timeout=60) as r:
-            corpo = r.read().decode("utf-8", "replace")
-        time.sleep(PAUSA)
-        return corpo
+        return self._abrir(url)
 
     def post(self, url, dados, referer):
         req = urllib.request.Request(url, data=urllib.parse.urlencode(dados).encode(), headers={
             "X-Requested-With": "XMLHttpRequest", "Referer": referer,
             "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"})
-        with self.op.open(req, timeout=60) as r:
-            corpo = r.read().decode("utf-8", "replace")
-        time.sleep(PAUSA)
-        return corpo
+        return self._abrir(req)
 
 
 def coletar_banco(banco: str, slug: str) -> tuple[list[dict], bool]:
@@ -191,7 +203,9 @@ def coletar_banco(banco: str, slug: str) -> tuple[list[dict], bool]:
 def coletar(bancos=None) -> dict:
     from .coleta_caixa import gravar
     resultado = {}
-    for banco, slug in (bancos or BANCOS).items():
+    for n, (banco, slug) in enumerate((bancos or BANCOS).items()):
+        if n:
+            time.sleep(PAUSA_BANCO)
         try:
             imoveis, completo = coletar_banco(banco, slug)
         except Exception as exc:
