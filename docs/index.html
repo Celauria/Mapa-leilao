@@ -18,6 +18,8 @@
   @media (prefers-color-scheme: dark) { :root { --bg:#151514; --card:#1f1f1d; --ink:#ecebe7; --muted:#a3a19b; --line:#33322f; } }
   * { box-sizing:border-box; }
   [hidden] { display:none !important; }
+  select:disabled { opacity:.55; }
+  #ordem { grid-column: 1 / -1; }
   html, body { height:100%; }
   body { margin:0; font:15px/1.4 -apple-system, system-ui, sans-serif; background:var(--bg); color:var(--ink); }
   header { padding:calc(env(safe-area-inset-top) + 10px) 12px 10px; border-bottom:1px solid var(--line); background:var(--card); }
@@ -54,6 +56,7 @@
   <div class="filtros">
     <select id="filtro" aria-label="Estado"><option value="">SP e SC</option></select>
     <select id="cidade" aria-label="Cidade"><option value="">Cidade: todas</option></select>
+    <select id="bairro" aria-label="Bairro" disabled><option value="">Bairro: escolha a cidade</option></select>
     <select id="modalidade" aria-label="Modalidade"><option value="">Modalidade: todas</option></select>
     <select id="desconto_min" aria-label="Desconto mínimo">
       <option value="">Todo desconto</option>

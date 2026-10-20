@@ -72,6 +72,7 @@ function item(im) {
 const TESTES = {
   filtro:        (im, v) => im.filtro === v,
   cidade:        (im, v) => `${im.cidade}|${im.uf}` === v,
+  bairro:        (im, v) => (im.bairro || "") === v,
   modalidade:    (im, v) => im.modalidade === v,
   financiamento: (im, v) => (im.financiamento || "").trim() === v,
   desconto_min:  (im, v) => descReal(im) >= +v,
@@ -96,12 +97,12 @@ function opcoes(id, rotuloTodos, itens) {
 
 function atualizarOpcoes(vals) {
   // Estado: ignora também a cidade, para dar para trocar de estado com uma cidade escolhida.
-  const porEstado = contar(filtrar(vals, ["filtro", "cidade"]), im => im.filtro);
+  const porEstado = contar(filtrar(vals, ["filtro", "cidade", "bairro"]), im => im.filtro);
   const nEst = Object.values(porEstado).reduce((a, b) => a + b, 0);
   opcoes("filtro", `SP e SC (${fmt(nEst)})`, Object.keys(porEstado).sort()
     .map(f => ({ valor: f, rotulo: `${f.replace("Estado de ", "")} (${fmt(porEstado[f])})`, n: porEstado[f] })));
 
-  const baseCid = filtrar(vals, ["cidade"]);
+  const baseCid = filtrar(vals, ["cidade", "bairro"]);
   const porCidade = contar(baseCid, im => im.cidade && `${im.cidade}|${im.uf}`);
   opcoes("cidade", `Cidade: todas (${fmt(baseCid.length)})`, Object.keys(porCidade).sort().map(k => {
     const [c, uf] = k.split("|");
@@ -109,6 +110,21 @@ function atualizarOpcoes(vals) {
   }));
   if (vals.cidade && !porCidade[vals.cidade] && vals.filtro && !vals.cidade.endsWith("|" + vals.filtro.slice(-2))) {
     document.getElementById("cidade").value = "";  // cidade de outro estado: limpa
+  }
+
+  // Bairro: só faz sentido com uma cidade escolhida; lista os bairros dela.
+  const selBairro = document.getElementById("bairro");
+  const cidadeAtual = document.getElementById("cidade").value;
+  if (!cidadeAtual) {
+    selBairro.replaceChildren(Object.assign(el("option", null, "Bairro: escolha a cidade"), { value: "" }));
+    selBairro.disabled = true;
+  } else {
+    const baseBai = filtrar({ ...vals, cidade: cidadeAtual }, ["bairro"]);
+    const porBairro = contar(baseBai, im => im.bairro);
+    if (vals.bairro && !porBairro[vals.bairro]) selBairro.value = "";  // bairro de outra cidade
+    opcoes("bairro", `Bairro: todos (${fmt(baseBai.length)})`, Object.keys(porBairro).sort()
+      .map(b => ({ valor: b, rotulo: `${b} (${porBairro[b]})`, n: porBairro[b] })));
+    selBairro.disabled = false;
   }
 
   const porMod = contar(filtrar(vals, ["modalidade"]), im => im.modalidade);
@@ -149,6 +165,10 @@ fetch("imoveis.json", { cache: "no-cache" }).then(r => r.json()).then(j => {
   document.title = `Leilões · ${new Date(j.atualizado).toLocaleDateString("pt-BR")}`;
   render();
 }).catch(() => { document.getElementById("contagem").textContent = "sem dados ainda — aguarde a 1ª execução"; });
+
+["filtro", "cidade"].forEach(id => document.getElementById(id).addEventListener("change", () => {
+  document.getElementById("bairro").value = "";
+}));
 
 let t;
 document.querySelectorAll(".filtros select, .filtros input").forEach(e =>
