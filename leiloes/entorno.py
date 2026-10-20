@@ -11,7 +11,9 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
-OVERPASS = "https://overpass-api.de/api/interpreter"
+SERVIDORES = ["https://overpass-api.de/api/interpreter",
+              "https://overpass.kumi.systems/api/interpreter",
+              "https://overpass.private.coffee/api/interpreter"]
 SAIDA = Path(__file__).resolve().parent.parent / "data" / "estacoes.json"
 UA = "mapa-leiloes-pessoal/0.3 (uso pessoal; github.com/Celauria/Mapa-leilao)"
 CONSULTA = """
@@ -32,10 +34,26 @@ def atualizar(max_dias: int = 30, forcar: bool = False) -> bool:
         if idade < max_dias:
             print(f"Estações: lista de {idade} dia(s), sem necessidade de atualizar")
             return False
-    req = urllib.request.Request(OVERPASS, data=urllib.parse.urlencode({"data": CONSULTA}).encode(),
-                                 headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=240) as r:
-        dados = json.load(r)
+    dados, erros = None, []
+    for url in SERVIDORES:
+        try:
+            req = urllib.request.Request(url, data=urllib.parse.urlencode({"data": CONSULTA}).encode(),
+                                         headers={"User-Agent": UA, "Accept": "application/json"})
+            with urllib.request.urlopen(req, timeout=240) as r:
+                dados = json.load(r)
+            break
+        except Exception as exc:
+            corpo = ""
+            if hasattr(exc, "read"):
+                try:
+                    corpo = " ".join(exc.read()[:200].decode("utf-8", "replace").split())
+                except Exception:
+                    pass
+            erros.append(f"{url.split('/')[2]}: {type(exc).__name__} {exc} {corpo}")
+    if dados is None:
+        msg = "Estações: Overpass indisponível — " + " | ".join(erros)
+        print(f"::warning title=Estações::{msg[:900]}")
+        raise RuntimeError(msg)
     estacoes, vistos = [], set()
     for e in dados.get("elements", []):
         t = e.get("tags", {})
@@ -52,7 +70,9 @@ def atualizar(max_dias: int = 30, forcar: bool = False) -> bool:
         vistos.add(chave)
         estacoes.append([nome, tipo, round(e["lat"], 6), round(e["lon"], 6)])
     if len(estacoes) < 50:
-        raise RuntimeError(f"Estações: só {len(estacoes)} encontradas — consulta pode ter falhado")
+        msg = f"Estações: só {len(estacoes)} encontradas ({len(dados.get('elements', []))} elementos) — consulta pode ter falhado"
+        print(f"::warning title=Estações::{msg}")
+        raise RuntimeError(msg)
     SAIDA.parent.mkdir(exist_ok=True)
     SAIDA.write_text(json.dumps({"gerado": datetime.now().isoformat(timespec="seconds"), "fonte": "OpenStreetMap",
                                  "estacoes": estacoes}, ensure_ascii=False, separators=(",", ":")))
