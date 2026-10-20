@@ -62,10 +62,11 @@ function item(im) {
 
 function render() {
   const v = id => document.getElementById(id).value;
-  const filtro = v("filtro"), cidade = v("cidade"), pmax = +v("preco_max") || Infinity,
+  const filtro = v("filtro"), cidade = v("cidade"), modalidade = v("modalidade"), pmax = +v("preco_max") || Infinity,
         dmin = v("desconto_min") === "" ? -Infinity : +v("desconto_min"), periodo = +v("periodo") || 0, busca = norm(v("busca"));
   const dados = TODOS.filter(im =>
     (!filtro || im.filtro === filtro) && (!cidade || im.cidade === cidade) &&
+    (!modalidade || im.modalidade === modalidade) &&
     (im.preco ?? 0) <= pmax && descReal(im) >= dmin &&
     (!periodo || diasDesde(im.primeira_vez) <= periodo) &&
     (!busca || norm(`${im.bairro} ${im.endereco} ${im.tipo} ${im.cidade}`).includes(busca)));
@@ -95,6 +96,13 @@ fetch("imoveis.json", { cache: "no-cache" }).then(r => r.json()).then(j => {
   TODOS = j.imoveis || [];
   preencher("filtro", TODOS.map(i => i.filtro));
   preencher("cidade", TODOS.map(i => i.cidade));
+  // modalidades com contagem, da mais comum para a menos comum
+  const cont = {};
+  TODOS.forEach(i => { if (i.modalidade) cont[i.modalidade] = (cont[i.modalidade] || 0) + 1; });
+  const selMod = document.getElementById("modalidade");
+  Object.entries(cont).sort((a, b) => b[1] - a[1]).forEach(([m, n]) => {
+    const o = el("option", null, `${m.replace(" - Edital Único", "")} (${n.toLocaleString("pt-BR")})`); o.value = m; selMod.append(o);
+  });
   document.title = `Leilões · ${new Date(j.atualizado).toLocaleDateString("pt-BR")}`;
   render();
 }).catch(() => { document.getElementById("contagem").textContent = "sem dados ainda — aguarde a 1ª execução"; });
