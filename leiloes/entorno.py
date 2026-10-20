@@ -29,7 +29,7 @@ out body;
 """
 
 
-VERSAO = 2  # mudou o critério de estações: força recálculo
+VERSAO = 3  # mudou o critério de estações: força recálculo
 
 
 def atualizar(max_dias: int = 30, forcar: bool = False) -> bool:
@@ -76,7 +76,9 @@ def atualizar(max_dias: int = 30, forcar: bool = False) -> bool:
             # Só vale trem com operador de passageiros conhecido ou marcado como transporte público ativo.
             quem = " ".join(t.get(k, "") for k in ("operator", "network", "network:metro", "brand")).lower()
             passageiros = re.search(r"cptm|viamobilidade|trens? intercidades|\btic\b|metr[ôo]|supervia", quem)
-            if not passageiros and not (t.get("public_transport") == "station" and t.get("train") == "yes"):
+            # sem operador conhecido, aceita só dentro da área da CPTM (Grande SP e Jundiaí)
+            na_grande_sp = -24.10 <= e["lat"] <= -23.05 and -47.10 <= e["lon"] <= -46.00
+            if not passageiros and not (na_grande_sp and t.get("public_transport") == "station"):
                 continue
         chave = (nome, round(e["lat"], 3), round(e["lon"], 3))
         if chave in vistos:
