@@ -21,15 +21,18 @@ jobs:
           python-version: "3.12"
       - name: Baixar amostra do ITBI de São Paulo
         run: |
+          set +e
           pip install -q openpyxl
           mkdir -p amostras && cd amostras
           curl -s -L --max-time 600 -o itbi2026.xlsx \
             "https://prefeitura.sp.gov.br/cidade/secretarias/upload/fazenda/arquivos/itbi/GUIAS%20DE%20ITBI%20PAGAS%20%2830092026%29.xlsx" \
-            -w "itbi2026: HTTP %{http_code} %{content_type} %{size_download} bytes\n"
-          python - <<'PY'
+            -w "itbi2026: HTTP %{http_code} %{content_type} %{size_download} bytes\n" | tee itbi_resumo.txt
+          head -c 400 itbi2026.xlsx | file - >> itbi_resumo.txt
+          head -c 1500 itbi2026.xlsx | strings | head -20 >> itbi_resumo.txt
+          python - <<'PY' 2>> itbi_resumo.txt
           import openpyxl, csv, itertools
           wb = openpyxl.load_workbook("itbi2026.xlsx", read_only=True)
-          with open("itbi_resumo.txt", "w") as r:
+          with open("itbi_resumo.txt", "a") as r:
               for ws in wb.worksheets:
                   r.write(f"aba: {ws.title} dims={ws.max_row}x{ws.max_column}\n")
               ws = max(wb.worksheets, key=lambda w: w.max_row or 0)
@@ -38,7 +41,7 @@ jobs:
                   for row in itertools.islice(ws.iter_rows(values_only=True), 60):
                       w.writerow(row)
           PY
-          rm itbi2026.xlsx; ls -la; cat itbi_resumo.txt
+          rm -f itbi2026.xlsx; ls -la; cat itbi_resumo.txt; exit 0
       - name: Publicar no branch amostras
         run: |
           cd amostras
