@@ -101,6 +101,11 @@ function ficha(im) {
     }
     box.append(linha);
   }
+  if (im.estacao_nome) {
+    const dist = im.estacao_m < 1000 ? `${Math.round(im.estacao_m / 50) * 50} m` : `${(im.estacao_m / 1000).toFixed(1).replace(".", ",")} km`;
+    const aprox = im.geo_precisao === "endereco" ? "" : " (posição aproximada)";
+    box.append(el("div", "meta", `🚇 ${im.estacao_tipo} ${im.estacao_nome} a ~${dist} em linha reta${aprox}`));
+  }
   const areaRef = im.area_privativa || im.area_terreno;
   if (areaRef) box.append(el("div", "meta", `${brl(im.preco / areaRef)}/m² ${im.area_privativa ? "privativo" : "de terreno"}`));
   box.append(el("div", "meta", `${im.banco ? im.banco + " · " : ""}${im.modalidade || ""}${im.financiamento ? " · financiamento: " + im.financiamento : ""}`));
@@ -111,10 +116,18 @@ function ficha(im) {
     box.append(el("div", null, im.edital.resumo || ""));
     (im.edital.alertas || []).forEach(a => box.append(el("div", "alerta", "⚠ " + a)));
   }
+  const links = el("div", "links");
   if (im.link && /^https:\/\//.test(im.link)) {
     const a = el("a", null, "Abrir anúncio e edital"); a.href = im.link; a.target = "_blank"; a.rel = "noopener noreferrer";
-    box.append(a);
+    links.append(a);
   }
+  // Google Maps pelo endereço (de lá dá para abrir o Street View da rua)
+  const end = `${(im.endereco || "").split(/,?\s*(apto|ap|apartamento|bloco|bl|casa|lote|qd)\b/i)[0]}, ${im.cidade || ""} - ${im.uf || ""}`;
+  const g = el("a", null, "Ver rua no Google Maps");
+  g.href = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(end);
+  g.target = "_blank"; g.rel = "noopener noreferrer";
+  links.append(g);
+  box.append(links);
   return box;
 }
 

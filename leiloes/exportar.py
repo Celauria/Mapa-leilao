@@ -9,6 +9,7 @@ from pathlib import Path
 
 from .alerta import bate, carregar_filtros
 from .mercado_sp import referencia as referencia_sp
+from .entorno import estacao_proxima
 from .db import conectar
 from .score import calcular, referencia_m2
 
@@ -32,7 +33,11 @@ def exportar(destino: Path | None = None) -> Path:
         merc = referencia_sp(im)
         if merc:
             im["mercado_m2"], im["mercado_n"], im["mercado_nivel"] = merc
-        reg = {k: im.get(k) for k in CAMPOS + ("mercado_m2", "mercado_n", "mercado_nivel")}
+        est = estacao_proxima(im.get("lat"), im.get("lon"))
+        if est:
+            im["estacao_nome"], im["estacao_tipo"], im["estacao_m"] = est
+        reg = {k: im.get(k) for k in CAMPOS + ("mercado_m2", "mercado_n", "mercado_nivel",
+                                                "estacao_nome", "estacao_tipo", "estacao_m")}
         reg.update(calcular(im, ed, ref), filtro=f["nome"])
         if ed:
             reg["edital"] = {"resumo": ed.get("resumo"), "alertas": json.loads(ed.get("alertas") or "[]")}

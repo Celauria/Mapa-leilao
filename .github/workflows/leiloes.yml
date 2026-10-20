@@ -43,6 +43,10 @@ jobs:
         continue-on-error: true   # se a prefeitura estiver fora do ar, usa a referência anterior
         run: python -m leiloes.cli mercado
 
+      - name: Estações de metrô/trem (OpenStreetMap, mensal)
+        continue-on-error: true
+        run: python -m leiloes.cli entorno
+
       - name: Atualizar mapa
         run: python -m leiloes.cli exportar
 
@@ -51,7 +55,7 @@ jobs:
           git config user.name "leiloes-bot"
           git config user.email "leiloes-bot@users.noreply.github.com"
           git add -f data/leiloes.db docs/imoveis.json
-          [ -f data/mercado_sp.json ] && git add -f data/mercado_sp.json
+          for f in data/mercado_sp.json data/estacoes.json; do [ -f "$f" ] && git add -f "$f"; done
           git diff --cached --quiet && exit 0
           git commit -m "Coleta $(date -u +%Y-%m-%d) [skip ci]"
           # O repositório pode ter mudado durante a coleta (edições suas ou minhas).

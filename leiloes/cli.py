@@ -44,6 +44,8 @@ def main():
     sub.add_parser("exportar", help="gera docs/imoveis.json para o mapa estático")
     me = sub.add_parser("mercado", help="atualiza a referência de mercado de SP (ITBI), no máximo 1x por mês")
     me.add_argument("--forcar", action="store_true")
+    en = sub.add_parser("entorno", help="atualiza a lista de estações (OpenStreetMap), no máximo 1x por mês")
+    en.add_argument("--forcar", action="store_true")
 
     a = ap.parse_args()
     if a.cmd == "coletar":
@@ -67,6 +69,9 @@ def main():
         rodar(teste=a.teste, caminho_filtros=a.filtros)
     elif a.cmd == "mercado":
         from .mercado_sp import atualizar
+        atualizar(forcar=a.forcar)
+    elif a.cmd == "entorno":
+        from .entorno import atualizar
         atualizar(forcar=a.forcar)
     elif a.cmd == "exportar":
         from .exportar import exportar
