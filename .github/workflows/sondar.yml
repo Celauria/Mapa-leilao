@@ -22,16 +22,16 @@ jobs:
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
           baixar() { curl -s -L -A "$UA" -H "Accept-Language: pt-BR" --max-time 40 -o "$1" "$2"; echo "$1 $(wc -c < "$1") bytes  <- $2"; sleep 3; }
           baixar zuk_santander.html https://www.portalzuk.com.br/leilao-de-imoveis/v/banco-santander
-          baixar zuk_bradesco.html  https://www.portalzuk.com.br/leilao-de-imoveis/v/banco-bradesco
-          baixar zuk_itau.html      https://www.portalzuk.com.br/leilao-de-imoveis/v/banco-itau
-          baixar zuk_sp.html        https://www.portalzuk.com.br/leilao-de-imoveis/u/todos-imoveis/sp
-          baixar zuk_sitemap.xml    https://www.portalzuk.com.br/sitemap.xml
-          baixar biasi_home.html    https://www.biasileiloes.com.br/
-          baixar biasi_robots.txt   https://www.biasileiloes.com.br/robots.txt
-          baixar biasi_sitemap.xml  https://www.biasileiloes.com.br/sitemap.xml
-          # uma página de imóvel do Zuk (o primeiro link encontrado na listagem do Santander)
-          url=$(grep -o 'https://www.portalzuk.com.br/imovel/[^"]*' zuk_santander.html | head -1)
-          [ -n "$url" ] && baixar zuk_imovel.html "$url"
+          baixar zuk_lista.js       https://cdn.portalzuk.com.br/js/lista.aadfd05b282189b5f0794cfd76a1a463.js
+          baixar zuk_agenda.html    https://www.portalzuk.com.br/agenda/leiloes
+          baixar zuk_sp_capital.html https://www.portalzuk.com.br/leilao-de-imoveis/c/todos-imoveis/sp/capital/sao-paulo
+          baixar zuk_sc.html        https://www.portalzuk.com.br/leilao-de-imoveis/u/todos-imoveis/sc
+          # testa se a listagem aceita paginação por parâmetro (sem usar ajax-lote, bloqueado no robots.txt)
+          baixar zuk_santander_p2.html "https://www.portalzuk.com.br/leilao-de-imoveis/v/banco-santander?page=2"
+          baixar zuk_santander_pagina2.html "https://www.portalzuk.com.br/leilao-de-imoveis/v/banco-santander?pagina=2"
+          url=$(grep -o 'https://www.portalzuk.com.br/leilao/[^"]*' zuk_agenda.html | head -1)
+          [ -n "$url" ] && baixar zuk_leilao.html "$url"
+          grep -o 'carregarMais.\{0,1500\}' zuk_lista.js | head -3 > zuk_carregar_mais.txt || true
           ls -la
 
       - name: Publicar no branch amostras
