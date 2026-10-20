@@ -16,7 +16,7 @@ function ficha(im) {
   box.append(el("div", "meta", `${im.endereco || ""}, ${im.cidade || ""}/${im.uf || ""}`));
   box.append(el("div", null, `${brl(im.preco)} · avaliação ${brl(im.valor_avaliacao)} · ${im.desconto ?? "—"}% off`));
   if (im.area_privativa) box.append(el("div", "meta", `${im.area_privativa} m² · ${brl(im.preco / im.area_privativa)}/m²`));
-  box.append(el("div", "meta", im.modalidade || ""));
+  box.append(el("div", "meta", `${im.modalidade || ""}${im.financiamento ? " · financiamento: " + im.financiamento : ""}`));
   if (im.edital) {
     box.append(el("div", null, im.edital.resumo || ""));
     (im.edital.alertas || []).forEach(a => box.append(el("div", "alerta", "⚠ " + a)));

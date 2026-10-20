@@ -21,6 +21,7 @@ COLUNAS = {
     "uf": "uf", "cidade": "cidade", "bairro": "bairro", "endereco": "endereco",
     "preco": "preco", "valor de avaliacao": "valor_avaliacao", "desconto": "desconto",
     "descricao": "descricao", "modalidade de venda": "modalidade", "link de acesso": "link",
+    "financiamento": "financiamento",
 }
 
 
@@ -36,7 +37,9 @@ def _num(txt: str):
     if not txt:
         return None
     try:
-        return float(txt.replace(".", "").replace(",", "."))
+        if "," in txt:  # formato BR: 1.234.567,89
+            return float(txt.replace(".", "").replace(",", "."))
+        return float(txt)  # ponto decimal: 68.23
     except ValueError:
         return None
 
@@ -150,12 +153,12 @@ def gravar(imoveis: list[dict], fonte: str = "caixa", uf: str | None = None) -> 
             anterior[iid] = atual["preco"]
         con.execute(
             """INSERT INTO imovel (id, fonte, codigo, uf, cidade, bairro, endereco, preco, valor_avaliacao,
-                   desconto, descricao, tipo, area_privativa, quartos, modalidade, link)
+                   desconto, descricao, tipo, area_privativa, quartos, modalidade, link, financiamento)
                VALUES (:id,:fonte,:codigo,:uf,:cidade,:bairro,:endereco,:preco,:valor_avaliacao,
-                   :desconto,:descricao,:tipo,:area_privativa,:quartos,:modalidade,:link)
+                   :desconto,:descricao,:tipo,:area_privativa,:quartos,:modalidade,:link,:financiamento)
                ON CONFLICT(id) DO UPDATE SET preco=excluded.preco, desconto=excluded.desconto,
                    valor_avaliacao=excluded.valor_avaliacao, modalidade=excluded.modalidade,
-                   link=excluded.link, ativo=1, ultima_vez=datetime('now')""",
+                   link=excluded.link, financiamento=excluded.financiamento, ativo=1, ultima_vez=datetime('now')""",
             {**{k: im.get(k) for k in COLUNAS.values()}, "id": iid, "fonte": fonte,
              "tipo": im.get("tipo"), "area_privativa": im.get("area_privativa"), "quartos": im.get("quartos")},
         )

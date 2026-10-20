@@ -58,6 +58,8 @@ def calcular(im: dict, edital: dict | None, ref_m2: dict) -> dict:
         penal += PESOS["por_alerta"] * len(alertas)
     else:
         motivos.append("edital não analisado")
+        if (im.get("financiamento") or "").strip().lower().startswith("n"):
+            penal += PESOS["sem_financiamento"]; motivos.append("sem financiamento")
 
     if "ocupado" in (im.get("descricao") or "").lower() and not edital:
         penal += PESOS["ocupado"]; motivos.append("descrição indica ocupado")
