@@ -214,3 +214,100 @@ def coletar(bancos=None) -> dict:
         if imoveis:
             resultado[f"Zuk/{banco}"] = gravar(imoveis, fonte="zuk", banco=banco if completo else None)
     return resultado
+
+
+# ---------- Detalhes da página do imóvel (ocupação, pagamento, observações) ----------
+
+RISCOS = [
+    (r"\bpenhora", "Penhora registrada na matrícula"),
+    (r"\ba[çc][aã]o de (execu[çc][aã]o|despejo|cobran[çc]a|usucapi[aã]o|reintegra|anula)|\bprocesso n[ºo°]", "Ação judicial mencionada"),
+    (r"indisponibilidade", "Indisponibilidade de bens na matrícula"),
+    (r"regulariza[çc][aã]o.{0,200}(a cargo|expensas|responsabilidade) d[oe] arrematante"
+     r"|arrematante.{0,80}(suas expensas|seus custos).{0,160}regulariza", "Regularização por conta do comprador"),
+    (r"d[eé]bitos?.{0,120}(condom[ií]nio|iptu).{0,120}(a cargo|responsabilidade|por conta) d[oe] arrematante", "Débitos de IPTU/condomínio por conta do comprador"),
+    (r"desocupa[çc][aã]o por conta do (adquirente|arrematante)", "Desocupação por conta do comprador"),
+    (r"lance sujeito [àa] aprova[çc][aã]o do vendedor", "Lance sujeito à aprovação do banco"),
+]
+
+
+def parse_detalhe(html: str) -> dict:
+    s = BeautifulSoup(html, "html.parser")
+    for t in s(["script", "style", "svg", "noscript", "header", "footer", "nav"]):
+        t.decompose()
+    txt = re.sub(r"[ \t]+", " ", re.sub(r"\n\s*\n+", "\n", s.get_text("\n")))
+    baixo = txt.lower()
+
+    ocupado = ("sim" if re.search(r"im[óo]vel ocupado|\bocupado\.", txt, re.I)
+               else "nao" if re.search(r"im[óo]vel desocupado|\bdesocupado\b", txt, re.I) else "desconhecido")
+
+    def bloco(inicio, fins):
+        i = txt.find(inicio)
+        if i < 0:
+            return ""
+        j = min([k for k in (txt.find(f, i + len(inicio)) for f in fins) if k > 0] or [i + 1500])
+        return txt[i + len(inicio):j].strip()
+
+    obs = bloco("Observações", ["Em destaque no texto", "Histórico de alterações", "Formas de pagamento", "Documentos"])
+    pag = bloco("Formas de pagamento oferecida(s) pelo comitente vendedor", ["As formas de pagamento", "Documentos"])
+    descr = bloco("Descrição do imóvel", ["Matrícula do imóvel", "Observações"])
+    matr = bloco("Matrícula do imóvel:", ["Observações", "Formas de pagamento"])
+    junto = (obs + " " + pag).lower()
+    financ = (1 if re.search(r"financiamento|financiad|cr[ée]dito imobili[áa]rio", pag, re.I)
+              else 0 if re.search(r"vista", junto) else None)
+    if re.search(r"\d+\s*x\b|parcela", pag, re.I) and not financ:
+        alertas_extra = ["Parcelamento direto com o banco (sem financiamento)"]
+    else:
+        alertas_extra = []
+    alertas = [msg for padrao, msg in RISCOS if re.search(padrao, baixo, re.I | re.S)] + alertas_extra
+    if ocupado == "sim":
+        alertas.insert(0, "Imóvel ocupado")
+    acoes = "; ".join(m.group(0)[:160] for m in re.finditer(
+        r"(\bA[çc][aã]o de [^.;]{5,140}|\bPenhora[^.;]{0,120}|\bprocesso n[ºo°][^.;]{5,80})", obs, re.I))
+    resumo = " ".join(x for x in [
+        "Ocupado." if ocupado == "sim" else "Desocupado." if ocupado == "nao" else "",
+        f"Pagamento: {re.sub(chr(10), ' ', pag)[:220].rstrip(' .')}." if pag else "",
+        f"Matrícula {re.sub(chr(10), ' ', matr)[:80].rstrip(' .')}." if matr else ""] if x)
+    return {"ocupado": ocupado, "aceita_financiamento": financ, "acoes_judiciais": acoes or None,
+            "alertas": alertas, "resumo": resumo or None, "descricao_completa": descr[:600],
+            "observacoes": obs[:1500]}
+
+
+def detalhar(limite: int = 80, max_dias: int = 7):
+    """Lê a página dos imóveis do Zuk que estão nos filtros e ainda não foram lidos (ou faz > max_dias)."""
+    import json
+    from .alerta import bate, carregar_filtros
+    from .db import conectar
+    cfg = carregar_filtros()
+    con = conectar()
+    lidos = {r["imovel_id"]: r["analisado_em"] for r in con.execute("SELECT imovel_id, analisado_em FROM edital")}
+    corte = (datetime.now().timestamp() - max_dias * 86400)
+    pend = []
+    for im in con.execute("SELECT * FROM imovel WHERE fonte='zuk' AND ativo=1 ORDER BY primeira_vez DESC"):
+        im = dict(im)
+        if not any(bate(im, f) for f in cfg["filtros"]):
+            continue
+        quando = lidos.get(im["id"])
+        if quando and datetime.fromisoformat(quando).timestamp() > corte:
+            continue
+        pend.append(im)
+    s, feitos = _Sessao(), 0
+    for im in pend[:limite]:
+        try:
+            d = parse_detalhe(s.get(im["link"]))
+        except Exception as exc:
+            print(f"Zuk detalhe {im['id']}: {exc}")
+            continue
+        con.execute(
+            """INSERT OR REPLACE INTO edital (imovel_id, ocupado, aceita_financiamento, acoes_judiciais, alertas,
+                   resumo, analisado_em) VALUES (?,?,?,?,?,?,datetime('now'))""",
+            (im["id"], d["ocupado"], d["aceita_financiamento"], d["acoes_judiciais"],
+             json.dumps(d["alertas"], ensure_ascii=False), d["resumo"]))
+        if d["aceita_financiamento"] is not None:
+            con.execute("UPDATE imovel SET financiamento=? WHERE id=?",
+                        ("Sim" if d["aceita_financiamento"] else "Não", im["id"]))
+        con.commit()
+        feitos += 1
+    msg = f"Zuk detalhes: {feitos} páginas lidas ({max(0, len(pend) - limite)} ficam para a próxima)"
+    print(msg)
+    if os.getenv("GITHUB_ACTIONS"):
+        print(f"::notice title=Detalhes Zuk::{msg}")

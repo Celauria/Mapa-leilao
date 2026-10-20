@@ -18,7 +18,7 @@ concurrency:
 jobs:
   coletar:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 80
     steps:
       - uses: actions/checkout@v4
 
@@ -38,6 +38,10 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           ALERTA_PARA: ${{ secrets.ALERTA_PARA }}
         run: python -m leiloes.cli alerta
+
+      - name: Detalhes dos imóveis de banco (Zuk)
+        continue-on-error: true
+        run: python -m leiloes.cli detalhes-zuk
 
       - name: Referência de mercado SP (ITBI, mensal)
         continue-on-error: true   # se a prefeitura estiver fora do ar, usa a referência anterior

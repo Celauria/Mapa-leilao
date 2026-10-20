@@ -44,6 +44,8 @@ def main():
     sub.add_parser("exportar", help="gera docs/imoveis.json para o mapa estático")
     me = sub.add_parser("mercado", help="atualiza a referência de mercado de SP (ITBI), no máximo 1x por mês")
     me.add_argument("--forcar", action="store_true")
+    dz = sub.add_parser("detalhes-zuk", help="lê a página dos imóveis de banco nos filtros (ocupação, pagamento, riscos)")
+    dz.add_argument("--limite", type=int, default=80)
     en = sub.add_parser("entorno", help="atualiza a lista de estações (OpenStreetMap), no máximo 1x por mês")
     en.add_argument("--forcar", action="store_true")
 
@@ -70,6 +72,9 @@ def main():
     elif a.cmd == "mercado":
         from .mercado_sp import atualizar
         atualizar(forcar=a.forcar)
+    elif a.cmd == "detalhes-zuk":
+        from .coleta_zuk import detalhar
+        detalhar(a.limite)
     elif a.cmd == "entorno":
         from .entorno import atualizar
         atualizar(forcar=a.forcar)
