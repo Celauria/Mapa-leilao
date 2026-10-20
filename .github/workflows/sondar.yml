@@ -22,16 +22,20 @@ jobs:
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
           baixar() { curl -s -L -A "$UA" -H "Accept-Language: pt-BR" --max-time 40 -o "$1" "$2"; echo "$1 $(wc -c < "$1") bytes  <- $2"; sleep 3; }
           baixar zuk_santander.html https://www.portalzuk.com.br/leilao-de-imoveis/v/banco-santander
-          baixar zuk_lista.js       https://cdn.portalzuk.com.br/js/lista.aadfd05b282189b5f0794cfd76a1a463.js
-          baixar zuk_agenda.html    https://www.portalzuk.com.br/agenda/leiloes
-          baixar zuk_sp_capital.html https://www.portalzuk.com.br/leilao-de-imoveis/c/todos-imoveis/sp/capital/sao-paulo
-          baixar zuk_sc.html        https://www.portalzuk.com.br/leilao-de-imoveis/u/todos-imoveis/sc
-          # testa se a listagem aceita paginação por parâmetro (sem usar ajax-lote, bloqueado no robots.txt)
-          baixar zuk_santander_p2.html "https://www.portalzuk.com.br/leilao-de-imoveis/v/banco-santander?page=2"
-          baixar zuk_santander_pagina2.html "https://www.portalzuk.com.br/leilao-de-imoveis/v/banco-santander?pagina=2"
-          url=$(grep -o 'https://www.portalzuk.com.br/leilao/[^"]*' zuk_agenda.html | head -1)
-          [ -n "$url" ] && baixar zuk_leilao.html "$url"
-          grep -o 'carregarMais.\{0,1500\}' zuk_lista.js | head -3 > zuk_carregar_mais.txt || true
+          url=$(grep -o 'https://www.portalzuk.com.br/imovel/[^"]*' zuk_santander.html | head -1)
+          baixar zuk_imovel.html "$url"
+          # "Carregar mais" (rota permitida pelo robots.txt): POST com o token da página e os cookies da sessão
+          rm -f cj; curl -s -c cj -b cj -A "$UA" -o p1.html https://www.portalzuk.com.br/leilao-de-imoveis/v/banco-santander
+          tok=$(grep -o 'name="_token" value="[^"]*"' p1.html | head -1 | cut -d'"' -f4)
+          for path in /leilao-de-imoveis/v/banco-santander https://www.portalzuk.com.br/leilao-de-imoveis/v/banco-santander leilao-de-imoveis/v/banco-santander; do
+            n=$(echo "$path" | md5sum | cut -c1-6)
+            curl -s -c cj -b cj -A "$UA" -X POST -H "X-Requested-With: XMLHttpRequest" -H "Referer: https://www.portalzuk.com.br/leilao-de-imoveis/v/banco-santander" \
+              --data-urlencode "limit=30" --data-urlencode "count_imovel_zuk=30" --data-urlencode "path=$path" \
+              --data-urlencode "order=" --data-urlencode "div_parceiro_count=0" --data-urlencode "_token=$tok" \
+              -o "zuk_mais_$n.html" -w "mais path=$path -> %{http_code} %{size_download}\n" https://www.portalzuk.com.br/leilao-de-imoveis/mais
+            echo "  imóveis: $(grep -o 'portalzuk.com.br/imovel/[^"]*' zuk_mais_$n.html | sort -u | wc -l)"; sleep 3
+          done
+          rm -f cj p1.html
           ls -la
 
       - name: Publicar no branch amostras
