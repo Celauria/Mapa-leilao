@@ -1,7 +1,7 @@
 name: Sondar fontes
 
-# Captura amostras de páginas públicas dos leiloeiros (respeitando robots.txt) para
-# desenvolver os coletores. Salva no branch "amostras"; não mexe no main.
+# Captura amostras de fontes públicas para desenvolver os coletores.
+# Salva no branch "amostras"; não mexe no main.
 on:
   workflow_dispatch: {}
   push:
@@ -14,31 +14,31 @@ permissions:
 jobs:
   sondar:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
-      - name: Baixar amostras
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Baixar amostra do ITBI de São Paulo
         run: |
+          pip install -q openpyxl
           mkdir -p amostras && cd amostras
-          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
-          baixar() { curl -s -L -A "$UA" -H "Accept-Language: pt-BR" --max-time 40 -o "$1" "$2"; echo "$1 $(wc -c < "$1") bytes  <- $2"; sleep 3; }
-          baixar zuk_santander.html https://www.portalzuk.com.br/leilao-de-imoveis/v/banco-santander
-          url=$(grep -o 'https://www.portalzuk.com.br/imovel/[^"]*' zuk_santander.html | head -1)
-          baixar zuk_imovel.html "$url"
-          baixar zuk_lista.js https://cdn.portalzuk.com.br/js/lista.aadfd05b282189b5f0794cfd76a1a463.js
-          # "Carregar mais" (rota permitida pelo robots.txt): POST com o token da página e os cookies da sessão
-          rm -f cj; curl -s -c cj -b cj -A "$UA" -o p1.html https://www.portalzuk.com.br/leilao-de-imoveis/v/banco-santander
-          tok=$(grep -o 'name="_token" value="[^"]*"' p1.html | head -1 | cut -d'"' -f4)
-          for path in /leilao-de-imoveis/v/banco-santander https://www.portalzuk.com.br/leilao-de-imoveis/v/banco-santander leilao-de-imoveis/v/banco-santander; do
-            n=$(echo "$path" | md5sum | cut -c1-6)
-            curl -s -c cj -b cj -A "$UA" -X POST -H "X-Requested-With: XMLHttpRequest" -H "Referer: https://www.portalzuk.com.br/leilao-de-imoveis/v/banco-santander" \
-              --data-urlencode "limit=30" --data-urlencode "count_imovel_zuk=30" --data-urlencode "path=$path" \
-              --data-urlencode "order=" --data-urlencode "div_parceiro_count=0" --data-urlencode "_token=$tok" \
-              -o "zuk_mais_$n.html" -w "mais path=$path -> %{http_code} %{size_download}\n" https://www.portalzuk.com.br/leilao-de-imoveis/mais
-            echo "  imóveis: $(grep -o 'portalzuk.com.br/imovel/[^"]*' zuk_mais_$n.html | sort -u | wc -l)"; sleep 3
-          done
-          rm -f cj p1.html
-          ls -la
-
+          curl -s -L --max-time 600 -o itbi2026.xlsx \
+            "https://prefeitura.sp.gov.br/cidade/secretarias/upload/fazenda/arquivos/itbi/GUIAS%20DE%20ITBI%20PAGAS%20%2830092026%29.xlsx" \
+            -w "itbi2026: HTTP %{http_code} %{content_type} %{size_download} bytes\n"
+          python - <<'PY'
+          import openpyxl, csv, itertools
+          wb = openpyxl.load_workbook("itbi2026.xlsx", read_only=True)
+          with open("itbi_resumo.txt", "w") as r:
+              for ws in wb.worksheets:
+                  r.write(f"aba: {ws.title} dims={ws.max_row}x{ws.max_column}\n")
+              ws = max(wb.worksheets, key=lambda w: w.max_row or 0)
+              with open("itbi_amostra.csv", "w", newline="") as f:
+                  w = csv.writer(f)
+                  for row in itertools.islice(ws.iter_rows(values_only=True), 60):
+                      w.writerow(row)
+          PY
+          rm itbi2026.xlsx; ls -la; cat itbi_resumo.txt
       - name: Publicar no branch amostras
         run: |
           cd amostras
