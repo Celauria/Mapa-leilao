@@ -47,8 +47,15 @@ jobs:
           git config user.name "leiloes-bot"
           git config user.email "leiloes-bot@users.noreply.github.com"
           git add -f data/leiloes.db docs/imoveis.json
-          git diff --cached --quiet || git commit -m "Coleta $(date -u +%Y-%m-%d) [skip ci]"
-          git push
+          git diff --cached --quiet && exit 0
+          git commit -m "Coleta $(date -u +%Y-%m-%d) [skip ci]"
+          # O repositório pode ter mudado durante a coleta (edições suas ou minhas).
+          # Incorpora essas mudanças antes de gravar; banco e mapa são só do robô, então não há conflito.
+          for tentativa in 1 2 3 4 5; do
+            git pull --rebase -X theirs origin main && git push && exit 0
+            echo "Push recusado (tentativa $tentativa); tentando de novo em 10s"; sleep 10
+          done
+          exit 1
 
       - name: Guardar diagnóstico
         if: always()
