@@ -24,7 +24,7 @@ area["ISO3166-2"~"^BR-(SP|SC)$"]->.a;
   node["station"~"^(subway|light_rail|train)$"](area.a);
   node["public_transport"="station"]["subway"="yes"](area.a);
 );
-out tags;
+out body;
 """
 
 
@@ -58,6 +58,8 @@ def atualizar(max_dias: int = 30, forcar: bool = False) -> bool:
     for e in dados.get("elements", []):
         t = e.get("tags", {})
         nome = t.get("name")
+        if "lat" not in e or "lon" not in e:
+            continue
         if not nome or t.get("railway") in ("halt",) and not t.get("public_transport"):
             continue
         if t.get("usage") == "freight" or t.get("disused") == "yes" or t.get("railway") == "disused_station":
