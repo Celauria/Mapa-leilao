@@ -67,18 +67,67 @@ function item(im) {
   return d;
 }
 
+// Cada filtro é um teste. As opções de cada seletor são contadas aplicando todos os
+// OUTROS filtros (busca facetada): o que não existe com a seleção atual some da lista.
+const TESTES = {
+  filtro:        (im, v) => im.filtro === v,
+  cidade:        (im, v) => `${im.cidade}|${im.uf}` === v,
+  modalidade:    (im, v) => im.modalidade === v,
+  financiamento: (im, v) => (im.financiamento || "").trim() === v,
+  desconto_min:  (im, v) => descReal(im) >= +v,
+  preco_max:     (im, v) => +v <= 0 || (im.preco ?? 0) <= +v,
+  periodo:       (im, v) => diasDesde(im.primeira_vez) <= +v,
+  busca:         (im, v) => norm(`${im.bairro} ${im.endereco} ${im.tipo} ${im.cidade}`).includes(norm(v)),
+};
+const valores = () => Object.fromEntries(Object.keys(TESTES)
+  .map(id => [id, document.getElementById(id).value]).filter(([, v]) => v !== ""));
+const filtrar = (vals, exceto = []) => TODOS.filter(im =>
+  Object.entries(vals).every(([id, v]) => exceto.includes(id) || TESTES[id](im, v)));
+const contar = (lista, chave) => lista.reduce((c, im) => { const k = chave(im); if (k) c[k] = (c[k] || 0) + 1; return c; }, {});
+const fmt = n => n.toLocaleString("pt-BR");
+
+// Recria as opções de um seletor mantendo a escolha atual (mesmo com 0 resultados).
+function opcoes(id, rotuloTodos, itens) {
+  const sel = document.getElementById(id), atual = sel.value;
+  const lista = [{ valor: "", rotulo: rotuloTodos }, ...itens.filter(i => i.n > 0 || i.valor === atual)];
+  sel.replaceChildren(...lista.map(i => { const o = el("option", null, i.rotulo); o.value = i.valor; return o; }));
+  sel.value = atual;
+}
+
+function atualizarOpcoes(vals) {
+  // Estado: ignora também a cidade, para dar para trocar de estado com uma cidade escolhida.
+  const porEstado = contar(filtrar(vals, ["filtro", "cidade"]), im => im.filtro);
+  const nEst = Object.values(porEstado).reduce((a, b) => a + b, 0);
+  opcoes("filtro", `SP e SC (${fmt(nEst)})`, Object.keys(porEstado).sort()
+    .map(f => ({ valor: f, rotulo: `${f.replace("Estado de ", "")} (${fmt(porEstado[f])})`, n: porEstado[f] })));
+
+  const baseCid = filtrar(vals, ["cidade"]);
+  const porCidade = contar(baseCid, im => im.cidade && `${im.cidade}|${im.uf}`);
+  opcoes("cidade", `Cidade: todas (${fmt(baseCid.length)})`, Object.keys(porCidade).sort().map(k => {
+    const [c, uf] = k.split("|");
+    return { valor: k, rotulo: `${c}${vals.filtro ? "" : "/" + uf} (${porCidade[k]})`, n: porCidade[k] };
+  }));
+  if (vals.cidade && !porCidade[vals.cidade] && vals.filtro && !vals.cidade.endsWith("|" + vals.filtro.slice(-2))) {
+    document.getElementById("cidade").value = "";  // cidade de outro estado: limpa
+  }
+
+  const porMod = contar(filtrar(vals, ["modalidade"]), im => im.modalidade);
+  opcoes("modalidade", "Modalidade: todas", Object.entries(porMod).sort((a, b) => b[1] - a[1])
+    .map(([m, n]) => ({ valor: m, rotulo: `${m.replace(" - Edital Único", "")} (${fmt(n)})`, n })));
+
+  const porFin = contar(filtrar(vals, ["financiamento"]), im => (im.financiamento || "").trim());
+  opcoes("financiamento", "Financiamento: todos", [
+    { valor: "Sim", rotulo: `Aceita financiamento (${fmt(porFin["Sim"] || 0)})`, n: porFin["Sim"] || 0 },
+    { valor: "Não", rotulo: `Só à vista (${fmt(porFin["Não"] || 0)})`, n: porFin["Não"] || 0 },
+  ]);
+}
+
 function render() {
-  const v = id => document.getElementById(id).value;
-  const filtro = v("filtro"), cidade = v("cidade"), modalidade = v("modalidade"), financ = v("financiamento"), pmax = +v("preco_max") || Infinity,
-        dmin = v("desconto_min") === "" ? -Infinity : +v("desconto_min"), periodo = +v("periodo") || 0, busca = norm(v("busca"));
-  const dados = TODOS.filter(im =>
-    (!filtro || im.filtro === filtro) && (!cidade || `${im.cidade}|${im.uf}` === cidade) &&
-    (!modalidade || im.modalidade === modalidade) &&
-    (!financ || (im.financiamento || "").trim() === financ) &&
-    (im.preco ?? 0) <= pmax && descReal(im) >= dmin &&
-    (!periodo || diasDesde(im.primeira_vez) <= periodo) &&
-    (!busca || norm(`${im.bairro} ${im.endereco} ${im.tipo} ${im.cidade}`).includes(busca)));
-  const ordem = v("ordem");
+  let vals = valores();
+  atualizarOpcoes(vals);
+  vals = valores();  // a cidade pode ter sido limpa acima
+  const dados = filtrar(vals);
+  const ordem = document.getElementById("ordem").value;
   const chave = { score: im => -im.score, desconto: im => -descReal(im), preco: im => im.preco ?? 1e12,
                   recentes: im => -Date.parse((im.primeira_vez || "1970-01-01").replace(" ", "T") + "Z") }[ordem] || (im => -im.score);
   dados.sort((a, b) => chave(a) - chave(b));
@@ -91,52 +140,19 @@ function render() {
     const m = L.circleMarker([im.lat, im.lon], { radius: 7, color: cor(im.score), fillOpacity: im.geo_precisao === "endereco" ? .85 : .35, dashArray: im.geo_precisao === "endereco" ? null : "3 3" }).bindPopup(() => ficha(im));
     m.addTo(camada); marcadores[im.id] = m; pts.push([im.lat, im.lon]);
   });
-  document.getElementById("contagem").textContent = `${dados.length} imóveis · ${pts.length} no mapa`;
+  document.getElementById("contagem").textContent = `${fmt(dados.length)} imóveis · ${fmt(pts.length)} no mapa`;
   if (pts.length) mapa.fitBounds(pts, { padding: [24, 24], maxZoom: 14 });
-}
-
-// Cidades dependem do estado escolhido. Sem estado, cada cidade mostra a UF.
-function atualizarCidades() {
-  const sel = document.getElementById("cidade"), estado = document.getElementById("filtro").value, atual = sel.value;
-  const lista = TODOS.filter(i => !estado || i.filtro === estado);
-  const cont = {};
-  lista.forEach(i => { if (i.cidade) cont[`${i.cidade}|${i.uf}`] = (cont[`${i.cidade}|${i.uf}`] || 0) + 1; });
-  sel.replaceChildren(el("option", null, estado ? `Cidade: todas (${lista.length.toLocaleString("pt-BR")})` : "Cidade: todas"));
-  sel.firstChild.value = "";
-  Object.keys(cont).sort().forEach(k => {
-    const [cidade, uf] = k.split("|");
-    const o = el("option", null, `${cidade}${estado ? "" : "/" + uf} (${cont[k]})`); o.value = k; sel.append(o);
-  });
-  sel.value = cont[atual] ? atual : "";  // mantém a cidade se ela existir no novo estado
-}
-
-function preencher(id, valores) {
-  const s = document.getElementById(id);
-  [...new Set(valores)].filter(Boolean).sort().forEach(x => { const o = el("option", null, x); o.value = x; s.append(o); });
 }
 
 fetch("imoveis.json", { cache: "no-cache" }).then(r => r.json()).then(j => {
   TODOS = j.imoveis || [];
-  preencher("filtro", TODOS.map(i => i.filtro));
-  atualizarCidades();
-  const nFin = TODOS.filter(i => (i.financiamento || "").trim() === "Sim").length;
-  document.querySelector('#financiamento option[value="Sim"]').textContent = `Aceita financiamento (${nFin})`;
-  // modalidades com contagem, da mais comum para a menos comum
-  const cont = {};
-  TODOS.forEach(i => { if (i.modalidade) cont[i.modalidade] = (cont[i.modalidade] || 0) + 1; });
-  const selMod = document.getElementById("modalidade");
-  Object.entries(cont).sort((a, b) => b[1] - a[1]).forEach(([m, n]) => {
-    const o = el("option", null, `${m.replace(" - Edital Único", "")} (${n.toLocaleString("pt-BR")})`); o.value = m; selMod.append(o);
-  });
   document.title = `Leilões · ${new Date(j.atualizado).toLocaleDateString("pt-BR")}`;
   render();
 }).catch(() => { document.getElementById("contagem").textContent = "sem dados ainda — aguarde a 1ª execução"; });
 
-document.getElementById("filtro").addEventListener("change", atualizarCidades);
-
 let t;
 document.querySelectorAll(".filtros select, .filtros input").forEach(e =>
-  e.addEventListener("input", () => { clearTimeout(t); t = setTimeout(render, 250); }));
+  e.addEventListener(e.tagName === "SELECT" ? "change" : "input", () => { clearTimeout(t); t = setTimeout(render, e.tagName === "SELECT" ? 0 : 300); }));
 
 const botaoMais = document.getElementById("mais"), extras = document.getElementById("extras");
 botaoMais.addEventListener("click", () => {
