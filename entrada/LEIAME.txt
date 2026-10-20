@@ -1,0 +1,2 @@
+Coloque aqui Lista_imoveis_SP.csv e Lista_imoveis_SC.csv baixadas do site da Caixa.
+Cada envio dispara a atualização do mapa.

@@ -6,7 +6,7 @@ on:
   workflow_dispatch: {}      # botão "Run workflow" para rodar na hora
   push:                      # roda quando o código ou os filtros mudam
     branches: [main]
-    paths: ["leiloes/**", "filtros.json", ".github/workflows/leiloes.yml"]
+    paths: ["leiloes/**", "filtros.json", "entrada/**", ".github/workflows/leiloes.yml"]
 
 permissions:
   contents: write            # só para gravar o banco e o mapa de volta no repositório

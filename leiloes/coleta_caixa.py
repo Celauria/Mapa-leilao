@@ -86,6 +86,8 @@ def parse_csv(conteudo: bytes) -> list[dict]:
 
 
 BASE = "https://venda-imoveis.caixa.gov.br"
+from pathlib import Path as _Path
+ENTRADA = _Path(__file__).resolve().parent.parent / "entrada"
 CABECALHOS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36",
     "Accept": "text/csv,application/octet-stream,text/html;q=0.9,*/*;q=0.8",
@@ -174,7 +176,14 @@ def coletar(ufs=("SP",), arquivo: str | None = None) -> dict:
     resultado, falhas = {}, []
     for uf in ufs:
         try:
-            conteudo = open(arquivo, "rb").read() if arquivo else baixar(uf)
+            enviado = ENTRADA / f"Lista_imoveis_{uf}.csv"
+            if arquivo:
+                conteudo = open(arquivo, "rb").read()
+            elif enviado.exists():  # lista baixada pelo celular/computador e enviada ao repositório
+                conteudo = enviado.read_bytes()
+                print(f"{uf}: usando lista enviada ({enviado.name}, {len(conteudo):,} bytes)")
+            else:
+                conteudo = baixar(uf)
             try:
                 imoveis = parse_csv(conteudo)
             except StopIteration:
