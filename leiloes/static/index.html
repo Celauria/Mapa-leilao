@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa de Leilões</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root { --bg:#f6f5f2; --card:#fff; --ink:#1d1d1b; --muted:#6b6a66; --line:#e3e1db; --accent:#0f6b5c; --warn:#b5462a; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.4 system-ui, sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:12px 16px; border-bottom:1px solid var(--line); display:flex; gap:8px; flex-wrap:wrap; align-items:center; background:var(--card); }
+  header h1 { font-size:16px; margin:0 12px 0 0; }
+  select, input { padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:#fff; font:inherit; }
+  main { display:grid; grid-template-columns: 1fr 420px; height:calc(100vh - 58px); }
+  #mapa { height:100%; }
+  #lista { overflow:auto; border-left:1px solid var(--line); }
+  .item { padding:12px 16px; border-bottom:1px solid var(--line); cursor:pointer; background:var(--card); }
+  .item:hover, .item.ativo { background:#eef5f3; }
+  .linha { display:flex; justify-content:space-between; gap:8px; }
+  .preco { font-weight:600; }
+  .desc { color:var(--accent); font-weight:600; }
+  .meta { color:var(--muted); font-size:12px; }
+  .score { display:inline-block; min-width:34px; text-align:center; border-radius:999px; padding:1px 8px; font-weight:600; color:#fff; }
+  .motivos { font-size:12px; color:var(--muted); margin-top:4px; }
+  .alerta { color:var(--warn); font-size:12px; }
+  #contagem { color:var(--muted); margin-left:auto; }
+  @media (max-width: 800px) { main { grid-template-columns:1fr; grid-template-rows: 45vh 1fr; } #lista { border-left:0; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Mapa de Leilões</h1>
+  <select id="uf"><option value="">UF</option></select>
+  <select id="cidade"><option value="">Cidade</option></select>
+  <select id="modalidade"><option value="">Modalidade</option></select>
+  <input id="preco_max" type="number" placeholder="Preço máx." step="10000">
+  <input id="desconto_min" type="number" placeholder="Desconto mín. %">
+  <input id="busca" placeholder="Bairro, rua, tipo…">
+  <span id="contagem"></span>
+</header>
+<main>
+  <div id="mapa"></div>
+  <div id="lista"></div>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

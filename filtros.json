@@ -1,0 +1,8 @@
+{
+  "filtros": [
+    {"nome": "Estado de SP", "uf": "SP", "preco_max": 350000},
+    {"nome": "Estado de SC", "uf": "SC", "preco_max": 350000}
+  ],
+  "avisar_queda_de_preco": true,
+  "geocodificar_ate": 300
+}

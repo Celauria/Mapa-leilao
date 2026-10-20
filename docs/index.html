@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: https://*.tile.openstreetmap.org https://unpkg.com; connect-src 'self'; manifest-src 'self'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Leilões">
+<meta name="theme-color" content="#0f6b5c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icone-180.png">
+<title>Mapa de Leilões</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root { --bg:#f6f5f2; --card:#fff; --ink:#1d1d1b; --muted:#6b6a66; --line:#e3e1db; --accent:#0f6b5c; --warn:#b5462a; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#151514; --card:#1f1f1d; --ink:#ecebe7; --muted:#a3a19b; --line:#33322f; } }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; font:15px/1.4 -apple-system, system-ui, sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:calc(env(safe-area-inset-top) + 10px) 12px 10px; border-bottom:1px solid var(--line); background:var(--card); }
+  .topo { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+  h1 { font-size:17px; margin:0; }
+  #contagem { color:var(--muted); font-size:13px; }
+  .filtros { display:flex; gap:6px; overflow-x:auto; margin-top:8px; padding-bottom:2px; }
+  select, input { flex:0 0 auto; padding:7px 9px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink); font:inherit; font-size:14px; }
+  input[type=number] { width:118px; }
+  #busca { width:150px; }
+  main { display:grid; grid-template-columns: 1fr 420px; height:calc(100% - 96px - env(safe-area-inset-top)); }
+  #mapa { height:100%; }
+  #lista { overflow:auto; border-left:1px solid var(--line); -webkit-overflow-scrolling:touch; padding-bottom:env(safe-area-inset-bottom); }
+  .item { padding:12px 14px; border-bottom:1px solid var(--line); cursor:pointer; background:var(--card); }
+  .item.ativo { outline:2px solid var(--accent); outline-offset:-2px; }
+  .linha { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .preco { font-weight:600; }
+  .desc { color:var(--accent); font-weight:600; }
+  .meta, .motivos { color:var(--muted); font-size:13px; }
+  .score { min-width:36px; text-align:center; border-radius:999px; padding:1px 8px; font-weight:600; color:#fff; font-size:13px; }
+  .novo { font-size:11px; font-weight:600; color:#fff; background:var(--accent); border-radius:4px; padding:1px 5px; margin-left:6px; }
+  .alerta { color:var(--warn); font-size:13px; }
+  .leaflet-popup-content { font-size:14px; }
+  @media (max-width: 800px) { main { grid-template-columns:1fr; grid-template-rows: 42% 58%; } #lista { border-left:0; border-top:1px solid var(--line); } }
+</style>
+</head>
+<body>
+<header>
+  <div class="topo"><h1>Mapa de Leilões</h1><span id="contagem">carregando…</span></div>
+  <div class="filtros">
+    <select id="filtro"><option value="">Todos</option></select>
+    <select id="cidade"><option value="">Cidade</option></select>
+    <input id="preco_max" type="number" inputmode="numeric" placeholder="Preço máx.">
+    <input id="desconto_min" type="number" inputmode="numeric" placeholder="Desc. mín. %">
+    <select id="periodo"><option value="">Qualquer data</option><option value="1">Novos (24h)</option><option value="7">Últimos 7 dias</option></select>
+    <input id="busca" placeholder="Bairro, tipo…">
+  </div>
+</header>
+<main>
+  <div id="mapa"></div>
+  <div id="lista"></div>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+.env
+data/
+relatorios/
+.venv/
+__pycache__/
+alerta.log

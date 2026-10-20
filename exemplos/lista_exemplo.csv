@@ -1,0 +1,9 @@
+
+ Lista de Imóveis da Caixa - EXEMPLO FICTÍCIO;;;;;;;;;;
+
+N° do imóvel;UF;Cidade;Bairro;Endereço;Preço;Valor de avaliação;Desconto;Descrição;Modalidade de venda;Link de acesso
+8000000000001;SP;SAO PAULO;SAUDE;RUA EXEMPLO A, N. 100 APTO 12;310.000,00;520.000,00;40,38;Apartamento, 0.00 de área total, 62.00 de área privativa, 0.00 de área do terreno, 2 qto(s), 1 vaga;Venda Online;https://venda-imoveis.caixa.gov.br/sistema/detalhe-imovel.asp?hdnimovel=8000000000001
+8000000000002;SP;SAO PAULO;SAUDE;RUA EXEMPLO B, N. 55;455.000,00;610.000,00;25,41;Apartamento, 0.00 de área total, 71.00 de área privativa, 0.00 de área do terreno, 3 qto(s), 1 vaga;Licitação Aberta;https://venda-imoveis.caixa.gov.br/sistema/detalhe-imovel.asp?hdnimovel=8000000000002
+8000000000003;SP;SAO PAULO;SAUDE;RUA EXEMPLO C, N. 9 APTO 3;280.000,00;480.000,00;41,67;Apartamento, 0.00 de área total, 58.00 de área privativa, 0.00 de área do terreno, 2 qto(s). Imóvel ocupado.;Leilão SFI - Edital Único;https://venda-imoveis.caixa.gov.br/sistema/detalhe-imovel.asp?hdnimovel=8000000000003
+8000000000004;SP;SAO PAULO;MOOCA;RUA EXEMPLO D, N. 300;390.000,00;560.000,00;30,36;Casa, 120.00 de área total, 95.00 de área privativa, 120.00 de área do terreno, 3 qto(s);Venda Direta Online;https://venda-imoveis.caixa.gov.br/sistema/detalhe-imovel.asp?hdnimovel=8000000000004
+8000000000005;SP;CAMPINAS;CAMBUI;AV EXEMPLO E, N. 1200 APTO 81;350.000,00;700.000,00;50,00;Apartamento, 0.00 de área total, 80.00 de área privativa, 0.00 de área do terreno, 2 qto(s);Leilão SFI - Edital Único;https://venda-imoveis.caixa.gov.br/sistema/detalhe-imovel.asp?hdnimovel=8000000000005
