@@ -14,6 +14,8 @@ function ficha(im) {
   const box = el("div");
   box.append(el("strong", null, `${im.tipo || "Imóvel"} — ${im.bairro || ""}`));
   box.append(el("div", "meta", `${im.endereco || ""}, ${im.cidade || ""}/${im.uf || ""}`));
+  if (im.geo_precisao && !im.geo_precisao.startsWith("endereco"))
+    box.append(el("div", "meta", `Posição aproximada (centro do ${im.geo_precisao === "cidade" ? "município" : "bairro"})`));
   box.append(el("div", null, `${brl(im.preco)} · avaliação ${brl(im.valor_avaliacao)} · ${im.desconto ?? "—"}% off`));
   if (im.area_privativa) box.append(el("div", "meta", `${im.area_privativa} m² · ${brl(im.preco / im.area_privativa)}/m²`));
   box.append(el("div", "meta", `${im.modalidade || ""}${im.financiamento ? " · financiamento: " + im.financiamento : ""}`));
@@ -64,7 +66,7 @@ function render() {
   dados.slice(0, 600).forEach(im => lista.append(item(im)));
   dados.forEach(im => {
     if (im.lat == null) return;
-    const m = L.circleMarker([im.lat, im.lon], { radius: 7, color: cor(im.score), fillOpacity: .8 }).bindPopup(() => ficha(im));
+    const m = L.circleMarker([im.lat, im.lon], { radius: 7, color: cor(im.score), fillOpacity: im.geo_precisao === "endereco" ? .85 : .35, dashArray: im.geo_precisao === "endereco" ? null : "3 3" }).bindPopup(() => ficha(im));
     m.addTo(camada); marcadores[im.id] = m; pts.push([im.lat, im.lon]);
   });
   document.getElementById("contagem").textContent = `${dados.length} imóveis · ${pts.length} no mapa`;

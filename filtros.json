@@ -4,5 +4,5 @@
     {"nome": "Estado de SC", "uf": "SC", "preco_max": 350000}
   ],
   "avisar_queda_de_preco": true,
-  "geocodificar_ate": 300
+  "geocodificar_ate": 600
 }

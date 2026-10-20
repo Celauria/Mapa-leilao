@@ -158,7 +158,8 @@ def rodar(teste: bool = False, caminho_filtros=None, resultado_coleta=None) -> l
         canais = [c for c, ok in (("Telegram", enviar_telegram(msg)), ("e-mail", enviar_email(msg, arq))) if ok]
         print("Enviado por: " + (", ".join(canais) or "nenhum canal configurado"))
     try:  # deixa o mapa pronto para os imóveis dos filtros
-        geocode.geocodificar_pendentes(cfg.get("geocodificar_ate", 300))
+        geocode.geocodificar_pendentes(cfg.get("geocodificar_ate", 300),
+                                       filtro=lambda im: any(bate(im, f) for f in cfg["filtros"]))
     except Exception as exc:
         print(f"Geocodificação adiada: {exc}")
     return achados
