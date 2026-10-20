@@ -10,15 +10,23 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution:
 const camada = L.layerGroup().addTo(mapa);
 let TODOS = [], marcadores = {};
 
+// Desconto real sobre a avaliação. A Caixa publica 0% quando o preço fica acima dela;
+// aqui o valor negativo aparece, para não esconder isso.
+const descReal = im => im.valor_avaliacao > 0 && im.preco != null ? (1 - im.preco / im.valor_avaliacao) * 100 : (im.desconto ?? 0);
+const fmtDesc = d => d >= 0.5 ? `-${d.toFixed(0)}%` : d <= -0.5 ? `+${(-d).toFixed(0)}% acima` : "sem desconto";
+
 function ficha(im) {
   const box = el("div");
   box.append(el("strong", null, `${im.tipo || "Imóvel"} — ${im.bairro || ""}`));
   box.append(el("div", "meta", `${im.endereco || ""}, ${im.cidade || ""}/${im.uf || ""}`));
   if (im.geo_precisao && !im.geo_precisao.startsWith("endereco"))
     box.append(el("div", "meta", `Posição aproximada (centro do ${im.geo_precisao === "cidade" ? "município" : "bairro"})`));
-  box.append(el("div", null, `${brl(im.preco)} · avaliação ${brl(im.valor_avaliacao)} · ${im.desconto ?? "—"}% off`));
+  const dr = descReal(im);
+  box.append(el("div", null, `${brl(im.preco)} · avaliação ${brl(im.valor_avaliacao)} · ${dr >= 0.5 ? dr.toFixed(0) + "% de desconto" : fmtDesc(dr)}`));
   if (im.area_privativa) box.append(el("div", "meta", `${im.area_privativa} m² · ${brl(im.preco / im.area_privativa)}/m²`));
   box.append(el("div", "meta", `${im.modalidade || ""}${im.financiamento ? " · financiamento: " + im.financiamento : ""}`));
+  if (/SFI/i.test(im.modalidade || "") && dr < 0.5)
+    box.append(el("div", "dica", "1º leilão parte da avaliação. Se não houver lance, o 2º leilão costuma partir do valor da dívida, às vezes bem menor — confira datas e valores no edital."));
   if (im.edital) {
     box.append(el("div", null, im.edital.resumo || ""));
     (im.edital.alertas || []).forEach(a => box.append(el("div", "alerta", "⚠ " + a)));
@@ -37,7 +45,8 @@ function item(im) {
   const l1 = el("div", "linha");
   const p = el("span", "preco", brl(im.preco));
   if (diasDesde(im.primeira_vez) <= 1) p.append(el("span", "novo", "NOVO"));
-  l1.append(p, el("span", "desc", im.desconto != null ? `-${im.desconto}%` : ""));
+  const dr = descReal(im);
+  l1.append(p, el("span", dr >= 0.5 ? "desc" : "desc nulo", fmtDesc(dr)));
   const sc = el("span", "score", im.score); sc.style.background = cor(im.score); l1.append(sc);
   d.append(l1, el("div", null, `${im.tipo || "Imóvel"} · ${im.bairro || ""}, ${im.cidade || ""}/${im.uf}`));
   d.append(el("div", "meta", im.modalidade || ""));
@@ -54,12 +63,16 @@ function item(im) {
 function render() {
   const v = id => document.getElementById(id).value;
   const filtro = v("filtro"), cidade = v("cidade"), pmax = +v("preco_max") || Infinity,
-        dmin = +v("desconto_min") || 0, periodo = +v("periodo") || 0, busca = norm(v("busca"));
+        dmin = v("desconto_min") === "" ? -Infinity : +v("desconto_min"), periodo = +v("periodo") || 0, busca = norm(v("busca"));
   const dados = TODOS.filter(im =>
     (!filtro || im.filtro === filtro) && (!cidade || im.cidade === cidade) &&
-    (im.preco ?? 0) <= pmax && (im.desconto ?? 0) >= dmin &&
+    (im.preco ?? 0) <= pmax && descReal(im) >= dmin &&
     (!periodo || diasDesde(im.primeira_vez) <= periodo) &&
     (!busca || norm(`${im.bairro} ${im.endereco} ${im.tipo} ${im.cidade}`).includes(busca)));
+  const ordem = v("ordem");
+  const chave = { score: im => -im.score, desconto: im => -descReal(im), preco: im => im.preco ?? 1e12,
+                  recentes: im => -Date.parse((im.primeira_vez || "1970-01-01").replace(" ", "T") + "Z") }[ordem] || (im => -im.score);
+  dados.sort((a, b) => chave(a) - chave(b));
   camada.clearLayers(); marcadores = {};
   const lista = document.getElementById("lista"); lista.replaceChildren();
   const pts = [];
@@ -89,3 +102,11 @@ fetch("imoveis.json", { cache: "no-cache" }).then(r => r.json()).then(j => {
 let t;
 document.querySelectorAll(".filtros select, .filtros input").forEach(e =>
   e.addEventListener("input", () => { clearTimeout(t); t = setTimeout(render, 250); }));
+
+const botaoMais = document.getElementById("mais"), extras = document.getElementById("extras");
+botaoMais.addEventListener("click", () => {
+  extras.hidden = !extras.hidden;
+  botaoMais.setAttribute("aria-expanded", String(!extras.hidden));
+  botaoMais.textContent = extras.hidden ? "Mais filtros" : "Menos filtros";
+  setTimeout(() => mapa.invalidateSize(), 50);
+});

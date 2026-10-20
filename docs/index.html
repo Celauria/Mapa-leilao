@@ -17,17 +17,17 @@
   :root { --bg:#f6f5f2; --card:#fff; --ink:#1d1d1b; --muted:#6b6a66; --line:#e3e1db; --accent:#0f6b5c; --warn:#b5462a; }
   @media (prefers-color-scheme: dark) { :root { --bg:#151514; --card:#1f1f1d; --ink:#ecebe7; --muted:#a3a19b; --line:#33322f; } }
   * { box-sizing:border-box; }
+  [hidden] { display:none !important; }
   html, body { height:100%; }
   body { margin:0; font:15px/1.4 -apple-system, system-ui, sans-serif; background:var(--bg); color:var(--ink); }
   header { padding:calc(env(safe-area-inset-top) + 10px) 12px 10px; border-bottom:1px solid var(--line); background:var(--card); }
   .topo { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
   h1 { font-size:17px; margin:0; }
   #contagem { color:var(--muted); font-size:13px; }
-  .filtros { display:flex; gap:6px; overflow-x:auto; margin-top:8px; padding-bottom:2px; }
-  select, input { flex:0 0 auto; padding:7px 9px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink); font:inherit; font-size:14px; }
-  input[type=number] { width:118px; }
-  #busca { width:150px; }
-  main { display:grid; grid-template-columns: 1fr 420px; height:calc(100% - 96px - env(safe-area-inset-top)); }
+  body { display:flex; flex-direction:column; }
+  .filtros { display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:6px; margin-top:8px; }
+  select, input { width:100%; min-width:0; padding:7px 9px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink); font:inherit; font-size:16px; text-overflow:ellipsis; }
+  main { flex:1; min-height:0; display:grid; grid-template-columns: 1fr 420px; }
   #mapa { height:100%; }
   #lista { overflow:auto; border-left:1px solid var(--line); -webkit-overflow-scrolling:touch; padding-bottom:env(safe-area-inset-bottom); }
   .item { padding:12px 14px; border-bottom:1px solid var(--line); cursor:pointer; background:var(--card); }
@@ -35,24 +35,43 @@
   .linha { display:flex; justify-content:space-between; align-items:center; gap:8px; }
   .preco { font-weight:600; }
   .desc { color:var(--accent); font-weight:600; }
+  #mais { margin-top:6px; padding:2px 0; border:0; background:none; color:var(--accent); font:inherit; font-size:14px; }
+  .desc.nulo { color:var(--muted); font-weight:400; font-size:13px; }
+  .dica { font-size:13px; color:var(--muted); border-left:3px solid var(--accent); padding-left:8px; margin:6px 0; }
   .meta, .motivos { color:var(--muted); font-size:13px; }
   .score { min-width:36px; text-align:center; border-radius:999px; padding:1px 8px; font-weight:600; color:#fff; font-size:13px; }
   .novo { font-size:11px; font-weight:600; color:#fff; background:var(--accent); border-radius:4px; padding:1px 5px; margin-left:6px; }
   .alerta { color:var(--warn); font-size:13px; }
   .leaflet-popup-content { font-size:14px; }
-  @media (max-width: 800px) { main { grid-template-columns:1fr; grid-template-rows: 42% 58%; } #lista { border-left:0; border-top:1px solid var(--line); } }
+  @media (max-width: 800px) { .filtros { grid-template-columns:1fr 1fr; } main { grid-template-columns:1fr; grid-template-rows: 45% 55%; } #lista { border-left:0; border-top:1px solid var(--line); } }
 </style>
 </head>
 <body>
 <header>
   <div class="topo"><h1>Mapa de Leilões</h1><span id="contagem">carregando…</span></div>
   <div class="filtros">
-    <select id="filtro"><option value="">Todos</option></select>
-    <select id="cidade"><option value="">Cidade</option></select>
-    <input id="preco_max" type="number" inputmode="numeric" placeholder="Preço máx.">
-    <input id="desconto_min" type="number" inputmode="numeric" placeholder="Desc. mín. %">
-    <select id="periodo"><option value="">Qualquer data</option><option value="1">Novos (24h)</option><option value="7">Últimos 7 dias</option></select>
-    <input id="busca" placeholder="Bairro, tipo…">
+    <select id="filtro" aria-label="Estado"><option value="">SP e SC</option></select>
+    <select id="desconto_min" aria-label="Desconto mínimo">
+      <option value="">Todo desconto</option>
+      <option value="0.5">Com desconto</option>
+      <option value="20">≥ 20% desc.</option>
+      <option value="30">≥ 30% desc.</option>
+      <option value="40">≥ 40% desc.</option>
+      <option value="50">≥ 50% desc.</option>
+    </select>
+    <select id="cidade" aria-label="Cidade"><option value="">Cidade: todas</option></select>
+    <select id="ordem" aria-label="Ordenar">
+      <option value="score">Melhor score</option>
+      <option value="desconto">Maior desconto</option>
+      <option value="preco">Menor preço</option>
+      <option value="recentes">Mais recentes</option>
+    </select>
+  </div>
+  <button id="mais" type="button" aria-expanded="false">Mais filtros</button>
+  <div class="filtros" id="extras" hidden>
+    <input id="preco_max" type="number" inputmode="numeric" placeholder="Preço máx. (R$)" aria-label="Preço máximo">
+    <select id="periodo" aria-label="Período"><option value="">Qualquer data</option><option value="1">Novos (24h)</option><option value="7">Últimos 7 dias</option></select>
+    <input id="busca" placeholder="Bairro, rua, tipo…" aria-label="Busca">
   </div>
 </header>
 <main>
