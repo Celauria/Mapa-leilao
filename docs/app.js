@@ -51,11 +51,18 @@ function item(im) {
   d.append(l1, el("div", null, `${im.tipo || "Imóvel"} · ${im.bairro || ""}, ${im.cidade || ""}/${im.uf}`));
   d.append(el("div", "meta", im.modalidade || ""));
   if (im.motivos?.length) d.append(el("div", "motivos", im.motivos.join(" · ")));
-  d.onclick = () => {
+  d.onclick = ev => {
+    if (ev.target.closest("a")) return;  // link do anúncio dentro da ficha
     document.querySelectorAll(".item.ativo").forEach(x => x.classList.remove("ativo"));
     d.classList.add("ativo");
     const m = marcadores[im.id];
-    if (m) { mapa.setView(m.getLatLng(), 15); m.openPopup(); }
+    if (m) { mapa.setView(m.getLatLng(), 15); m.openPopup(); return; }
+    // Sem posição no mapa: abre/fecha a ficha dentro da própria lista.
+    const aberta = d.querySelector(".ficha");
+    if (aberta) { aberta.remove(); return; }
+    const f = ficha(im); f.className = "ficha";
+    f.prepend(el("div", "dica", "Ainda sem posição no mapa — a localização é calculada aos poucos a cada coleta."));
+    d.append(f);
   };
   return d;
 }
