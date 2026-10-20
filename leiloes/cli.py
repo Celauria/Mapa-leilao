@@ -42,6 +42,8 @@ def main():
     al = sub.add_parser("alerta", help="coleta as UFs de filtros.json e avisa o que é novo ou baixou de preço")
     al.add_argument("--teste", action="store_true", help="não envia, só mostra"); al.add_argument("--filtros")
     sub.add_parser("exportar", help="gera docs/imoveis.json para o mapa estático")
+    me = sub.add_parser("mercado", help="atualiza a referência de mercado de SP (ITBI), no máximo 1x por mês")
+    me.add_argument("--forcar", action="store_true")
 
     a = ap.parse_args()
     if a.cmd == "coletar":
@@ -63,6 +65,9 @@ def main():
     elif a.cmd == "alerta":
         from .alerta import rodar
         rodar(teste=a.teste, caminho_filtros=a.filtros)
+    elif a.cmd == "mercado":
+        from .mercado_sp import atualizar
+        atualizar(forcar=a.forcar)
     elif a.cmd == "exportar":
         from .exportar import exportar
         exportar()

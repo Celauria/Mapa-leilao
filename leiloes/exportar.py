@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .alerta import bate, carregar_filtros
+from .mercado_sp import referencia as referencia_sp
 from .db import conectar
 from .score import calcular, referencia_m2
 
@@ -28,7 +29,10 @@ def exportar(destino: Path | None = None) -> Path:
         if not f:
             continue
         ed = editais.get(im["id"])
-        reg = {k: im.get(k) for k in CAMPOS}
+        merc = referencia_sp(im)
+        if merc:
+            im["mercado_m2"], im["mercado_n"], im["mercado_nivel"] = merc
+        reg = {k: im.get(k) for k in CAMPOS + ("mercado_m2", "mercado_n", "mercado_nivel")}
         reg.update(calcular(im, ed, ref), filtro=f["nome"])
         if ed:
             reg["edital"] = {"resumo": ed.get("resumo"), "alertas": json.loads(ed.get("alertas") or "[]")}

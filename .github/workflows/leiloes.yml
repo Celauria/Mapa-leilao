@@ -39,6 +39,10 @@ jobs:
           ALERTA_PARA: ${{ secrets.ALERTA_PARA }}
         run: python -m leiloes.cli alerta
 
+      - name: Referência de mercado SP (ITBI, mensal)
+        continue-on-error: true   # se a prefeitura estiver fora do ar, usa a referência anterior
+        run: python -m leiloes.cli mercado
+
       - name: Atualizar mapa
         run: python -m leiloes.cli exportar
 
@@ -47,6 +51,7 @@ jobs:
           git config user.name "leiloes-bot"
           git config user.email "leiloes-bot@users.noreply.github.com"
           git add -f data/leiloes.db docs/imoveis.json
+          [ -f data/mercado_sp.json ] && git add -f data/mercado_sp.json
           git diff --cached --quiet && exit 0
           git commit -m "Coleta $(date -u +%Y-%m-%d) [skip ci]"
           # O repositório pode ter mudado durante a coleta (edições suas ou minhas).

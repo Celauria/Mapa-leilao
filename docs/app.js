@@ -91,6 +91,16 @@ function ficha(im) {
   }
   const car = caracteristicas(im, true);
   if (car) box.append(el("div", "carac", car));
+  if (im.mercado_m2) {
+    const area = im.area_total || im.area_privativa;
+    const onde = im.mercado_nivel === "rua" ? "nesta rua" : "neste bairro";
+    const linha = el("div", "dica", `Vendas reais ${onde} (ITBI, 12 meses): mediana ${brl(im.mercado_m2)}/m² em ${im.mercado_n} vendas`);
+    if (area) {
+      const d = (1 - (precoMin(im) / area) / im.mercado_m2) * 100;
+      linha.append(el("strong", null, ` · este sai ${Math.abs(d).toFixed(0)}% ${d >= 0 ? "abaixo" : "acima"}`));
+    }
+    box.append(linha);
+  }
   const areaRef = im.area_privativa || im.area_terreno;
   if (areaRef) box.append(el("div", "meta", `${brl(im.preco / areaRef)}/m² ${im.area_privativa ? "privativo" : "de terreno"}`));
   box.append(el("div", "meta", `${im.banco ? im.banco + " · " : ""}${im.modalidade || ""}${im.financiamento ? " · financiamento: " + im.financiamento : ""}`));

@@ -32,11 +32,21 @@ def calcular(im: dict, edital: dict | None, ref_m2: dict) -> dict:
     motivos = []
     base = min(desconto, 70) / 70 * 100  # 70% de desconto = teto
 
-    m2 = ref_m2.get((im.get("cidade"), im.get("bairro")))
+    br = lambda v: f"{v:,.0f}".replace(",", ".")
+    mercado = im.get("mercado_m2")  # vendas reais (ITBI), quando houver
+    area_merc = im.get("area_total") or im.get("area_privativa")
+    if mercado and area_merc and im.get("preco"):
+        preco_m2 = im["preco"] / area_merc
+        desc_merc = (1 - preco_m2 / mercado) * 100
+        onde = "na rua" if im.get("mercado_nivel") == "rua" else "no bairro"
+        motivos.append(f"R$ {br(preco_m2)}/m² vs vendas reais {onde} R$ {br(mercado)}/m²")
+        base = (base + min(max(desc_merc, 0), 70) / 70 * 100) / 2
+        m2 = None
+    else:
+        m2 = ref_m2.get((im.get("cidade"), im.get("bairro")))
     if m2 and im.get("area_privativa") and im.get("preco"):
         preco_m2 = im["preco"] / im["area_privativa"]
         desc_bairro = (1 - preco_m2 / m2) * 100
-        br = lambda v: f"{v:,.0f}".replace(",", ".")
         motivos.append(f"R$ {br(preco_m2)}/m² vs mediana do bairro R$ {br(m2)}/m²")
         base = (base + min(max(desc_bairro, 0), 70) / 70 * 100) / 2
 
