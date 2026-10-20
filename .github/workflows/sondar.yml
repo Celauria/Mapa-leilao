@@ -24,6 +24,7 @@ jobs:
           baixar zuk_santander.html https://www.portalzuk.com.br/leilao-de-imoveis/v/banco-santander
           url=$(grep -o 'https://www.portalzuk.com.br/imovel/[^"]*' zuk_santander.html | head -1)
           baixar zuk_imovel.html "$url"
+          baixar zuk_lista.js https://cdn.portalzuk.com.br/js/lista.aadfd05b282189b5f0794cfd76a1a463.js
           # "Carregar mais" (rota permitida pelo robots.txt): POST com o token da página e os cookies da sessão
           rm -f cj; curl -s -c cj -b cj -A "$UA" -o p1.html https://www.portalzuk.com.br/leilao-de-imoveis/v/banco-santander
           tok=$(grep -o 'name="_token" value="[^"]*"' p1.html | head -1 | cut -d'"' -f4)
