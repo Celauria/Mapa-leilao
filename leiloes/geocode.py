@@ -79,13 +79,48 @@ def _cache(con, q, precisao):
     return pos
 
 
+RAIO_CIDADE_KM = 35  # um ponto mais longe que isso do centro da cidade é homônimo de outro lugar
+
+
+def _km(a, b):
+    import math
+    la1, lo1, la2, lo2 = map(math.radians, (a[0], a[1], b[0], b[1]))
+    h = math.sin((la2 - la1) / 2) ** 2 + math.cos(la1) * math.cos(la2) * math.sin((lo2 - lo1) / 2) ** 2
+    return 12742 * math.asin(math.sqrt(h))
+
+
+def _centro(con, im):
+    pos = _cache(con, f"{im['cidade']}, {im['uf']}", "cidade")
+    return pos if pos and pos != "erro" else None
+
+
+def _na_cidade(con, im, pos) -> bool:
+    centro = _centro(con, im)
+    raio = 40 if im.get("cidade") == "SAO PAULO" else RAIO_CIDADE_KM  # a capital é extensa
+    return centro is None or _km(pos, centro) <= raio
+
+
 def _aproximado(con, im):
     for q, precisao in ((f"{im['bairro']}, {im['cidade']}, {im['uf']}", "bairro"),
                         (f"{im['cidade']}, {im['uf']}", "cidade")):
         pos = _cache(con, q, precisao)
-        if pos and pos != "erro":
+        if pos and pos != "erro" and (precisao == "cidade" or _na_cidade(con, im, pos)):
             return pos, precisao
     return None, None
+
+
+def _revalidar(con, ok) -> int:
+    """Apaga posições que caíram longe da própria cidade (bairro homônimo em outra cidade)."""
+    ruins = 0
+    for im in con.execute("SELECT * FROM imovel WHERE ativo=1 AND lat IS NOT NULL AND COALESCE(geo_precisao,'') != 'cidade'"):
+        im = dict(im)
+        if not ok(im):
+            continue
+        if not _na_cidade(con, im, (im["lat"], im["lon"])):
+            con.execute("UPDATE imovel SET lat=NULL, lon=NULL, geo_precisao=NULL WHERE id=?", (im["id"],))
+            ruins += 1
+    con.commit()
+    return ruins
 
 
 def geocodificar_pendentes(limite: int = 200, tempo_max: int = 1800, filtro=None):
@@ -96,6 +131,10 @@ def geocodificar_pendentes(limite: int = 200, tempo_max: int = 1800, filtro=None
     resumo = {"aproximados": 0, "refinados": 0, "sem_posicao": 0}
 
     ok = filtro or (lambda im: True)  # só geocodifica o que aparece no mapa
+    try:
+        resumo["refeitos_fora_da_cidade"] = _revalidar(con, ok)
+    except GeoIndisponivel as exc:
+        _aviso(str(exc))
     pend = [im for im in con.execute("SELECT * FROM imovel WHERE lat IS NULL AND ativo=1 ORDER BY preco")
             if ok(dict(im))]
     try:
@@ -133,7 +172,7 @@ def _etapas(con, pend, ok, limite, fim, resumo):
         pos = _cache(con, f"{_limpar_endereco(im['endereco'])}, {im['cidade']}, {im['uf']}", "endereco")
         if pos == "erro":
             continue
-        if pos:
+        if pos and _na_cidade(con, im, pos):
             con.execute("UPDATE imovel SET lat=?, lon=?, geo_precisao='endereco' WHERE id=?", (*pos, im["id"]))
             resumo["refinados"] += 1
         else:  # não tenta de novo todo dia; fica na posição do bairro
