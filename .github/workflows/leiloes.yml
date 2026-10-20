@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: "40 10 * * *"   # 07h40 em Brasília (UTC-3)
   workflow_dispatch: {}      # botão "Run workflow" para rodar na hora
+  push:                      # roda quando o código ou os filtros mudam
+    branches: [main]
+    paths: ["leiloes/**", "filtros.json", ".github/workflows/leiloes.yml"]
 
 permissions:
   contents: write            # só para gravar o banco e o mapa de volta no repositório
@@ -46,6 +49,15 @@ jobs:
           git add -f data/leiloes.db docs/imoveis.json
           git diff --cached --quiet || git commit -m "Coleta $(date -u +%Y-%m-%d) [skip ci]"
           git push
+
+      - name: Guardar diagnóstico
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostico
+          path: diagnostico/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Avisar se falhar
         if: failure()

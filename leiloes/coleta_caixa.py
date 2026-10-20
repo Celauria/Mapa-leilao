@@ -84,10 +84,51 @@ def parse_csv(conteudo: bytes) -> list[dict]:
     return imoveis
 
 
+BASE = "https://venda-imoveis.caixa.gov.br"
+CABECALHOS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36",
+    "Accept": "text/csv,application/octet-stream,text/html;q=0.9,*/*;q=0.8",
+    "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+}
+
+
+class RespostaInvalida(Exception):
+    """A Caixa respondeu, mas não com o CSV (bloqueio, manutenção, página de verificação)."""
+
+
+def _abrir_sessao():
+    """Visita a página de download antes, como um navegador, para receber os cookies."""
+    import http.cookiejar
+    jar = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    opener.addheaders = list(CABECALHOS.items())
+    try:
+        opener.open(BASE + "/sistema/download-lista.asp", timeout=60).read()
+    except Exception as exc:  # segue mesmo assim; o diagnóstico abaixo mostra o resultado
+        print(f"Aviso: página de download não abriu ({exc})")
+    return opener
+
+
+_SESSAO = None
+
+
 def baixar(uf: str) -> bytes:
-    req = urllib.request.Request(URL.format(uf=uf), headers={"User-Agent": "Mozilla/5.0 (mapa-leiloes pessoal)"})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        return r.read()
+    global _SESSAO
+    _SESSAO = _SESSAO or _abrir_sessao()
+    req = urllib.request.Request(URL.format(uf=uf), headers={"Referer": BASE + "/sistema/download-lista.asp"})
+    with _SESSAO.open(req, timeout=120) as r:
+        conteudo, tipo, status = r.read(), r.headers.get("Content-Type", ""), r.status
+    print(f"{uf}: HTTP {status} · {tipo or 'sem content-type'} · {len(conteudo):,} bytes")
+    return conteudo
+
+
+def _diagnostico(uf: str, conteudo: bytes):
+    from pathlib import Path
+    pasta = Path(__file__).resolve().parent.parent / "diagnostico"
+    pasta.mkdir(exist_ok=True)
+    (pasta / f"resposta_{uf}.bin").write_bytes(conteudo)
+    trecho = conteudo[:600].decode("latin-1", "replace").replace("\n", " ")
+    return f"{uf}: resposta não é o CSV da Caixa. Início do conteúdo: {trecho!r}"
 
 
 def gravar(imoveis: list[dict], fonte: str = "caixa", uf: str | None = None) -> dict:
@@ -129,9 +170,18 @@ def gravar(imoveis: list[dict], fonte: str = "caixa", uf: str | None = None) -> 
 
 
 def coletar(ufs=("SP",), arquivo: str | None = None) -> dict:
-    resultado = {}
+    resultado, falhas = {}, []
     for uf in ufs:
-        conteudo = open(arquivo, "rb").read() if arquivo else baixar(uf)
-        imoveis = parse_csv(conteudo)
-        resultado[uf] = gravar(imoveis, uf=uf)
+        try:
+            conteudo = open(arquivo, "rb").read() if arquivo else baixar(uf)
+            try:
+                imoveis = parse_csv(conteudo)
+            except StopIteration:
+                raise RespostaInvalida(_diagnostico(uf, conteudo))
+            resultado[uf] = gravar(imoveis, uf=uf)
+        except Exception as exc:  # uma UF com problema não derruba as outras
+            print(f"ERRO {uf}: {exc}")
+            falhas.append(uf)
+    if falhas and not resultado:
+        raise RespostaInvalida(f"Nenhuma UF coletada ({', '.join(falhas)}). Veja as mensagens acima.")
     return resultado

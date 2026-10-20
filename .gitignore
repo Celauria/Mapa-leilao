@@ -4,3 +4,4 @@ relatorios/
 .venv/
 __pycache__/
 alerta.log
+diagnostico/
