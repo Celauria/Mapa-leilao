@@ -62,11 +62,12 @@ function item(im) {
 
 function render() {
   const v = id => document.getElementById(id).value;
-  const filtro = v("filtro"), cidade = v("cidade"), modalidade = v("modalidade"), pmax = +v("preco_max") || Infinity,
+  const filtro = v("filtro"), cidade = v("cidade"), modalidade = v("modalidade"), financ = v("financiamento"), pmax = +v("preco_max") || Infinity,
         dmin = v("desconto_min") === "" ? -Infinity : +v("desconto_min"), periodo = +v("periodo") || 0, busca = norm(v("busca"));
   const dados = TODOS.filter(im =>
     (!filtro || im.filtro === filtro) && (!cidade || `${im.cidade}|${im.uf}` === cidade) &&
     (!modalidade || im.modalidade === modalidade) &&
+    (!financ || (im.financiamento || "").trim() === financ) &&
     (im.preco ?? 0) <= pmax && descReal(im) >= dmin &&
     (!periodo || diasDesde(im.primeira_vez) <= periodo) &&
     (!busca || norm(`${im.bairro} ${im.endereco} ${im.tipo} ${im.cidade}`).includes(busca)));
@@ -111,6 +112,8 @@ fetch("imoveis.json", { cache: "no-cache" }).then(r => r.json()).then(j => {
   TODOS = j.imoveis || [];
   preencher("filtro", TODOS.map(i => i.filtro));
   atualizarCidades();
+  const nFin = TODOS.filter(i => (i.financiamento || "").trim() === "Sim").length;
+  document.querySelector('#financiamento option[value="Sim"]').textContent = `Aceita financiamento (${nFin})`;
   // modalidades com contagem, da mais comum para a menos comum
   const cont = {};
   TODOS.forEach(i => { if (i.modalidade) cont[i.modalidade] = (cont[i.modalidade] || 0) + 1; });

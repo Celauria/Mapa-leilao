@@ -61,15 +61,20 @@
       <option value="40">≥ 40% desc.</option>
       <option value="50">≥ 50% desc.</option>
     </select>
-  </div>
-  <button id="mais" type="button" aria-expanded="false">Mais filtros</button>
-  <div class="filtros" id="extras" hidden>
+    <select id="financiamento" aria-label="Financiamento">
+      <option value="">Financiamento: todos</option>
+      <option value="Sim">Aceita financiamento</option>
+      <option value="Não">Só à vista</option>
+    </select>
     <select id="ordem" aria-label="Ordenar">
       <option value="score">Melhor score</option>
       <option value="desconto">Maior desconto</option>
       <option value="preco">Menor preço</option>
       <option value="recentes">Mais recentes</option>
     </select>
+  </div>
+  <button id="mais" type="button" aria-expanded="false">Mais filtros</button>
+  <div class="filtros" id="extras" hidden>
     <input id="preco_max" type="number" inputmode="numeric" placeholder="Preço máx. (R$)" aria-label="Preço máximo">
     <select id="periodo" aria-label="Período"><option value="">Qualquer data</option><option value="1">Novos (24h)</option><option value="7">Últimos 7 dias</option></select>
     <input id="busca" placeholder="Bairro, rua, tipo…" aria-label="Busca">
