@@ -49,6 +49,12 @@
   .pracas { margin:6px 0; font-size:13px; }
   .pracas div { display:flex; justify-content:space-between; gap:8px; }
   .pracas .passou { color:var(--muted); text-decoration:line-through; }
+  #premissas { margin-top:8px; font-size:14px; }
+  #premissas summary { color:var(--accent); cursor:pointer; }
+  #premissas label { display:flex; flex-direction:column; gap:2px; font-size:12px; color:var(--muted); }
+  .custo { margin:8px 0; padding:8px; border:1px solid var(--line); border-radius:8px; font-size:13px; }
+  .custo div { display:flex; justify-content:space-between; gap:8px; }
+  .custo .total { font-weight:600; border-top:1px solid var(--line); margin-top:4px; padding-top:4px; }
   .novo { font-size:11px; font-weight:600; color:#fff; background:var(--accent); border-radius:4px; padding:1px 5px; margin-left:6px; }
   .alerta { color:var(--warn); font-size:13px; }
   .leaflet-popup-content { font-size:14px; }
@@ -102,6 +108,18 @@
     <select id="periodo" aria-label="Período"><option value="">Qualquer data</option><option value="1">Novos (24h)</option><option value="7">Últimos 7 dias</option></select>
     <input id="busca" placeholder="Bairro, rua, tipo…" aria-label="Busca">
   </div>
+  <details id="premissas" hidden>
+    <summary>Premissas de custo e financiamento</summary>
+    <div class="filtros">
+      <label>ITBI (%)<input id="p_itbi" type="number" inputmode="decimal" step="0.1"></label>
+      <label>Cartório e registro (%)<input id="p_cartorio" type="number" inputmode="decimal" step="0.1"></label>
+      <label>Comissão do leiloeiro (%)<input id="p_comissao" type="number" inputmode="decimal" step="0.5"></label>
+      <label>Entrada (%)<input id="p_entrada" type="number" inputmode="decimal" step="5"></label>
+      <label>Juros (% ao ano)<input id="p_juros" type="number" inputmode="decimal" step="0.1"></label>
+      <label>Prazo (meses)<input id="p_prazo" type="number" inputmode="numeric" step="12"></label>
+    </div>
+    <p class="meta">Estimativas. ITBI e cartório variam por cidade; a comissão vale só para leilões. Os valores ficam salvos só neste aparelho.</p>
+  </details>
 </header>
 <main>
   <div id="mapa"></div>

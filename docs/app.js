@@ -32,6 +32,41 @@ function caracteristicas(im, completo = false) {
   return p.join(" · ");
 }
 
+// ---- Custo total e parcela (premissas editáveis, salvas só neste aparelho) ----
+const PADRAO = { itbi: 3, cartorio: 1.5, comissao: 5, entrada: 20, juros: 11.5, prazo: 420 };
+let PREM = { ...PADRAO };
+try { PREM = { ...PADRAO, ...JSON.parse(localStorage.getItem("premissas") || "{}") }; } catch (e) {}
+const pct = v => v.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+const ehLeilao = im => /leil/i.test(im.modalidade || "");
+
+function custos(im) {
+  const preco = precoMin(im) || im.preco || 0;
+  const itens = [["Lance / preço", preco], [`ITBI (~${pct(PREM.itbi)}%)`, preco * PREM.itbi / 100],
+                 [`Cartório e registro (~${pct(PREM.cartorio)}%)`, preco * PREM.cartorio / 100]];
+  if (ehLeilao(im)) itens.push([`Comissão do leiloeiro (${pct(PREM.comissao)}%)`, preco * PREM.comissao / 100]);
+  const total = itens.reduce((a, [, v]) => a + v, 0);
+  let fin = null;
+  if ((im.financiamento || "").trim() === "Sim") {
+    const entrada = preco * PREM.entrada / 100, financiado = preco - entrada, n = PREM.prazo, i = Math.pow(1 + PREM.juros / 100, 1 / 12) - 1;
+    fin = { entrada, primeira: financiado / n + financiado * i, ultima: financiado / n * (1 + i),
+            precisaNaMao: entrada + total - preco };
+  }
+  return { itens, total, fin };
+}
+
+function blocoCusto(im) {
+  const { itens, total, fin } = custos(im);
+  const b = el("div", "custo");
+  itens.forEach(([r, v]) => { const l = el("div"); l.append(el("span", null, r), el("span", null, brl(v))); b.append(l); });
+  const t = el("div", "total"); t.append(el("span", null, "Custo total estimado"), el("strong", null, brl(total))); b.append(t);
+  if (fin) {
+    const f = el("div"); f.append(el("span", null, `Entrada (${pct(PREM.entrada)}%) + custos`), el("span", null, brl(fin.precisaNaMao))); b.append(f);
+    const p = el("div"); p.append(el("span", null, `1ª parcela (SAC, TR + ${pct(PREM.juros)}% a.a., ${PREM.prazo} meses)`), el("strong", null, brl(fin.primeira))); b.append(p);
+    b.append(el("div", "meta", `As parcelas caem até ~${brl(fin.ultima)} no fim. Sujeito à aprovação de crédito.`));
+  }
+  return b;
+}
+
 function ficha(im) {
   const box = el("div");
   box.append(el("strong", null, `${im.tipo || "Imóvel"} — ${im.bairro || ""}`));
@@ -59,6 +94,7 @@ function ficha(im) {
   const areaRef = im.area_privativa || im.area_terreno;
   if (areaRef) box.append(el("div", "meta", `${brl(im.preco / areaRef)}/m² ${im.area_privativa ? "privativo" : "de terreno"}`));
   box.append(el("div", "meta", `${im.banco ? im.banco + " · " : ""}${im.modalidade || ""}${im.financiamento ? " · financiamento: " + im.financiamento : ""}`));
+  box.append(blocoCusto(im));
   if (/SFI/i.test(im.modalidade || "") && (dr ?? 0) < 0.5)
     box.append(el("div", "dica", "1º leilão parte da avaliação. Se não houver lance, o 2º leilão costuma partir do valor da dívida, às vezes bem menor — confira datas e valores no edital."));
   if (im.edital) {
@@ -206,7 +242,7 @@ function render() {
   dados.slice(0, 600).forEach(im => lista.append(item(im)));
   dados.forEach(im => {
     if (im.lat == null) return;
-    const m = L.circleMarker([im.lat, im.lon], { radius: 7, color: cor(im.score), fillOpacity: im.geo_precisao === "endereco" ? .85 : .35, dashArray: im.geo_precisao === "endereco" ? null : "3 3" }).bindPopup(() => ficha(im));
+    const m = L.circleMarker([im.lat, im.lon], { radius: 7, color: cor(im.score), fillOpacity: im.geo_precisao === "endereco" ? .85 : .35, dashArray: im.geo_precisao === "endereco" ? null : "3 3" }).bindPopup(() => ficha(im), { maxHeight: Math.max(220, mapa.getSize().y - 70), autoPanPadding: [10, 10] });
     m.addTo(camada); marcadores[im.id] = m; pts.push([im.lat, im.lon]);
   });
   document.getElementById("contagem").textContent = `${fmt(dados.length)} imóveis · ${fmt(pts.length)} no mapa`;
@@ -227,9 +263,22 @@ let t;
 document.querySelectorAll(".filtros select, .filtros input").forEach(e =>
   e.addEventListener(e.tagName === "SELECT" ? "change" : "input", () => { clearTimeout(t); t = setTimeout(render, e.tagName === "SELECT" ? 0 : 300); }));
 
+const prem = document.getElementById("premissas");
+Object.keys(PADRAO).forEach(k => {
+  const inp = document.getElementById("p_" + k);
+  inp.value = PREM[k];
+  inp.addEventListener("change", () => {
+    const v = parseFloat(inp.value);
+    PREM[k] = isFinite(v) && v >= 0 ? v : PADRAO[k]; inp.value = PREM[k];
+    try { localStorage.setItem("premissas", JSON.stringify(PREM)); } catch (e) {}
+    mapa.closePopup(); document.querySelectorAll(".ficha").forEach(f => f.remove());
+  });
+});
+
 const botaoMais = document.getElementById("mais"), extras = document.getElementById("extras");
 botaoMais.addEventListener("click", () => {
   extras.hidden = !extras.hidden;
+  prem.hidden = extras.hidden;
   botaoMais.setAttribute("aria-expanded", String(!extras.hidden));
   botaoMais.textContent = extras.hidden ? "Mais filtros" : "Menos filtros";
   setTimeout(() => mapa.invalidateSize(), 50);
