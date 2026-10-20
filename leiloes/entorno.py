@@ -6,6 +6,7 @@ imóveis com posição aproximada (centro do bairro/cidade) ela vale como indica
 """
 import json
 import math
+import re
 import urllib.parse
 import urllib.request
 from datetime import datetime
@@ -28,10 +29,14 @@ out body;
 """
 
 
+VERSAO = 2  # mudou o critério de estações: força recálculo
+
+
 def atualizar(max_dias: int = 30, forcar: bool = False) -> bool:
     if SAIDA.exists() and not forcar:
-        idade = (datetime.now() - datetime.fromisoformat(json.loads(SAIDA.read_text())["gerado"])).days
-        if idade < max_dias:
+        atual = json.loads(SAIDA.read_text())
+        idade = (datetime.now() - datetime.fromisoformat(atual["gerado"])).days
+        if idade < max_dias and atual.get("versao") == VERSAO:
             print(f"Estações: lista de {idade} dia(s), sem necessidade de atualizar")
             return False
     dados, erros = None, []
@@ -66,6 +71,13 @@ def atualizar(max_dias: int = 30, forcar: bool = False) -> bool:
             continue
         tipo = ("metrô" if t.get("station") == "subway" or t.get("subway") == "yes"
                 else "VLT" if t.get("station") == "light_rail" or t.get("light_rail") == "yes" else "trem")
+        if tipo == "trem":
+            # Muitas estações antigas do interior seguem mapeadas sem uso de passageiros.
+            # Só vale trem com operador de passageiros conhecido ou marcado como transporte público ativo.
+            quem = " ".join(t.get(k, "") for k in ("operator", "network", "network:metro", "brand")).lower()
+            passageiros = re.search(r"cptm|viamobilidade|trens? intercidades|\btic\b|metr[ôo]|supervia", quem)
+            if not passageiros and not (t.get("public_transport") == "station" and t.get("train") == "yes"):
+                continue
         chave = (nome, round(e["lat"], 3), round(e["lon"], 3))
         if chave in vistos:
             continue
@@ -76,7 +88,7 @@ def atualizar(max_dias: int = 30, forcar: bool = False) -> bool:
         print(f"::warning title=Estações::{msg}")
         raise RuntimeError(msg)
     SAIDA.parent.mkdir(exist_ok=True)
-    SAIDA.write_text(json.dumps({"gerado": datetime.now().isoformat(timespec="seconds"), "fonte": "OpenStreetMap",
+    SAIDA.write_text(json.dumps({"gerado": datetime.now().isoformat(timespec="seconds"), "fonte": "OpenStreetMap", "versao": VERSAO,
                                  "estacoes": estacoes}, ensure_ascii=False, separators=(",", ":")))
     print(f"Estações: {len(estacoes)} salvas")
     return True
