@@ -41,15 +41,21 @@ jobs:
 
       - name: Detalhes dos imóveis de banco (Zuk)
         continue-on-error: true
-        run: python -m leiloes.cli detalhes-zuk
+        run: |
+          set -o pipefail
+          python -m leiloes.cli detalhes-zuk 2>&1 | tee /tmp/detalhes-zuk.log || { echo "::warning title=Detalhes Zuk falhou::$(tail -c 700 /tmp/detalhes-zuk.log | tr '\n' ' ')"; exit 1; }
 
       - name: Referência de mercado SP (ITBI, mensal)
         continue-on-error: true   # se a prefeitura estiver fora do ar, usa a referência anterior
-        run: python -m leiloes.cli mercado
+        run: |
+          set -o pipefail
+          python -m leiloes.cli mercado 2>&1 | tee /tmp/mercado.log || { echo "::warning title=Mercado SP falhou::$(tail -c 700 /tmp/mercado.log | tr '\n' ' ')"; exit 1; }
 
       - name: Estações de metrô/trem (OpenStreetMap, mensal)
         continue-on-error: true
-        run: python -m leiloes.cli entorno
+        run: |
+          set -o pipefail
+          python -m leiloes.cli entorno 2>&1 | tee /tmp/entorno.log || { echo "::warning title=Estações falhou::$(tail -c 700 /tmp/entorno.log | tr '\n' ' ')"; exit 1; }
 
       - name: Atualizar mapa
         run: python -m leiloes.cli exportar
