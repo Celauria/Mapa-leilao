@@ -1,0 +1,32 @@
+name: Sondar fontes
+
+# Teste de acesso: verifica se os sites dos leiloeiros respondem aos servidores do GitHub
+# (a Caixa bloqueia). Não coleta nada; só registra status e tipo de resposta.
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths: [".github/workflows/sondar.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  sondar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Testar acesso
+        run: |
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+          for url in \
+            https://www.portalzuk.com.br/leilao-de-imoveis \
+            https://www.biasileiloes.com.br/ \
+            https://www.zukerman.com.br/ \
+            https://www.itau.com.br/imoveis-itau/ \
+            https://venda-imoveis.caixa.gov.br/sistema/download-lista.asp ; do
+            out=$(curl -s -L -A "$UA" -H "Accept-Language: pt-BR" -o /tmp/r.html -w "%{http_code} %{content_type} %{size_download}" --max-time 30 "$url" || echo "falhou")
+            titulo=$(grep -o -i "<title>[^<]*" /tmp/r.html 2>/dev/null | head -1 | sed 's/<title>//I' | tr -d '\r\n' | cut -c1-80)
+            bloqueio=$(grep -l -i -E "captcha|radware|cloudflare|access denied|perfdrive|are you a robot" /tmp/r.html >/dev/null 2>&1 && echo "SIM" || echo "não")
+            echo "::notice title=$(echo $url | cut -d/ -f3)::HTTP/tipo/bytes: $out | bloqueio: $bloqueio | título: $titulo"
+          done
