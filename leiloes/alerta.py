@@ -177,5 +177,5 @@ def rodar(teste: bool = False, caminho_filtros=None, resultado_coleta=None) -> l
         geocode.geocodificar_pendentes(cfg.get("geocodificar_ate", 300),
                                        filtro=lambda im: any(bate(im, f) for f in cfg["filtros"]))
     except Exception as exc:
-        print(f"Geocodificação adiada: {exc}")
+        print(f"::warning title=Geocodificação falhou::{type(exc).__name__}: {exc}")
     return achados

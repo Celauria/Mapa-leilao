@@ -135,7 +135,7 @@ def geocodificar_pendentes(limite: int = 200, tempo_max: int = 1800, filtro=None
         resumo["refeitos_fora_da_cidade"] = _revalidar(con, ok)
     except GeoIndisponivel as exc:
         _aviso(str(exc))
-    pend = [im for im in con.execute("SELECT * FROM imovel WHERE lat IS NULL AND ativo=1 ORDER BY preco")
+    pend = [dict(im) for im in con.execute("SELECT * FROM imovel WHERE lat IS NULL AND ativo=1 ORDER BY preco")
             if ok(dict(im))]
     try:
         _etapas(con, pend, ok, limite, fim, resumo)
@@ -162,7 +162,7 @@ def _etapas(con, pend, ok, limite, fim, resumo):
             resumo["sem_posicao"] += 1
     con.commit()
 
-    refinar = [im for im in con.execute(
+    refinar = [dict(im) for im in con.execute(
         "SELECT * FROM imovel WHERE ativo=1 AND lat IS NOT NULL "
         "AND COALESCE(geo_precisao,'') NOT IN ('endereco','endereco-falhou') ORDER BY desconto DESC")
         if ok(dict(im))][:limite]
