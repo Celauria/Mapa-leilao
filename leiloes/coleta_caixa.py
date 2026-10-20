@@ -5,6 +5,7 @@ da linha de colunas (que começa com 'N° do imóvel'). As colunas podem mudar,
 então o parser localiza cada uma pelo nome.
 """
 import csv
+import os
 import io
 import re
 import urllib.request
@@ -181,6 +182,9 @@ def coletar(ufs=("SP",), arquivo: str | None = None) -> dict:
             resultado[uf] = gravar(imoveis, uf=uf)
         except Exception as exc:  # uma UF com problema não derruba as outras
             print(f"ERRO {uf}: {exc}")
+            if os.getenv("GITHUB_ACTIONS"):  # vira anotação visível na página da execução
+                msg = str(exc).replace("%", "%25").replace("\r", " ").replace("\n", " ")[:900]
+                print(f"::warning title=Coleta {uf}::{msg}")
             falhas.append(uf)
     if falhas and not resultado:
         raise RespostaInvalida(f"Nenhuma UF coletada ({', '.join(falhas)}). Veja as mensagens acima.")
