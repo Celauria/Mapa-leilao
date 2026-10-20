@@ -50,6 +50,8 @@
 <header>
   <div class="topo"><h1>Mapa de Leilões</h1><span id="contagem">carregando…</span></div>
   <div class="filtros">
+    <select id="filtro" aria-label="Estado"><option value="">SP e SC</option></select>
+    <select id="cidade" aria-label="Cidade"><option value="">Cidade: todas</option></select>
     <select id="modalidade" aria-label="Modalidade"><option value="">Modalidade: todas</option></select>
     <select id="desconto_min" aria-label="Desconto mínimo">
       <option value="">Todo desconto</option>
@@ -59,17 +61,15 @@
       <option value="40">≥ 40% desc.</option>
       <option value="50">≥ 50% desc.</option>
     </select>
-    <select id="cidade" aria-label="Cidade"><option value="">Cidade: todas</option></select>
+  </div>
+  <button id="mais" type="button" aria-expanded="false">Mais filtros</button>
+  <div class="filtros" id="extras" hidden>
     <select id="ordem" aria-label="Ordenar">
       <option value="score">Melhor score</option>
       <option value="desconto">Maior desconto</option>
       <option value="preco">Menor preço</option>
       <option value="recentes">Mais recentes</option>
     </select>
-  </div>
-  <button id="mais" type="button" aria-expanded="false">Mais filtros</button>
-  <div class="filtros" id="extras" hidden>
-    <select id="filtro" aria-label="Estado"><option value="">SP e SC</option></select>
     <input id="preco_max" type="number" inputmode="numeric" placeholder="Preço máx. (R$)" aria-label="Preço máximo">
     <select id="periodo" aria-label="Período"><option value="">Qualquer data</option><option value="1">Novos (24h)</option><option value="7">Últimos 7 dias</option></select>
     <input id="busca" placeholder="Bairro, rua, tipo…" aria-label="Busca">

@@ -65,7 +65,7 @@ function render() {
   const filtro = v("filtro"), cidade = v("cidade"), modalidade = v("modalidade"), pmax = +v("preco_max") || Infinity,
         dmin = v("desconto_min") === "" ? -Infinity : +v("desconto_min"), periodo = +v("periodo") || 0, busca = norm(v("busca"));
   const dados = TODOS.filter(im =>
-    (!filtro || im.filtro === filtro) && (!cidade || im.cidade === cidade) &&
+    (!filtro || im.filtro === filtro) && (!cidade || `${im.cidade}|${im.uf}` === cidade) &&
     (!modalidade || im.modalidade === modalidade) &&
     (im.preco ?? 0) <= pmax && descReal(im) >= dmin &&
     (!periodo || diasDesde(im.primeira_vez) <= periodo) &&
@@ -87,6 +87,21 @@ function render() {
   if (pts.length) mapa.fitBounds(pts, { padding: [24, 24], maxZoom: 14 });
 }
 
+// Cidades dependem do estado escolhido. Sem estado, cada cidade mostra a UF.
+function atualizarCidades() {
+  const sel = document.getElementById("cidade"), estado = document.getElementById("filtro").value, atual = sel.value;
+  const lista = TODOS.filter(i => !estado || i.filtro === estado);
+  const cont = {};
+  lista.forEach(i => { if (i.cidade) cont[`${i.cidade}|${i.uf}`] = (cont[`${i.cidade}|${i.uf}`] || 0) + 1; });
+  sel.replaceChildren(el("option", null, estado ? `Cidade: todas (${lista.length.toLocaleString("pt-BR")})` : "Cidade: todas"));
+  sel.firstChild.value = "";
+  Object.keys(cont).sort().forEach(k => {
+    const [cidade, uf] = k.split("|");
+    const o = el("option", null, `${cidade}${estado ? "" : "/" + uf} (${cont[k]})`); o.value = k; sel.append(o);
+  });
+  sel.value = cont[atual] ? atual : "";  // mantém a cidade se ela existir no novo estado
+}
+
 function preencher(id, valores) {
   const s = document.getElementById(id);
   [...new Set(valores)].filter(Boolean).sort().forEach(x => { const o = el("option", null, x); o.value = x; s.append(o); });
@@ -95,7 +110,7 @@ function preencher(id, valores) {
 fetch("imoveis.json", { cache: "no-cache" }).then(r => r.json()).then(j => {
   TODOS = j.imoveis || [];
   preencher("filtro", TODOS.map(i => i.filtro));
-  preencher("cidade", TODOS.map(i => i.cidade));
+  atualizarCidades();
   // modalidades com contagem, da mais comum para a menos comum
   const cont = {};
   TODOS.forEach(i => { if (i.modalidade) cont[i.modalidade] = (cont[i.modalidade] || 0) + 1; });
@@ -106,6 +121,8 @@ fetch("imoveis.json", { cache: "no-cache" }).then(r => r.json()).then(j => {
   document.title = `Leilões · ${new Date(j.atualizado).toLocaleDateString("pt-BR")}`;
   render();
 }).catch(() => { document.getElementById("contagem").textContent = "sem dados ainda — aguarde a 1ª execução"; });
+
+document.getElementById("filtro").addEventListener("change", atualizarCidades);
 
 let t;
 document.querySelectorAll(".filtros select, .filtros input").forEach(e =>
