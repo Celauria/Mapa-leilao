@@ -3,169 +3,129 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: https://*.tile.openstreetmap.org https://unpkg.com; connect-src 'self'; manifest-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://*.tile.openstreetmap.org https://unpkg.com; connect-src 'self'; manifest-src 'self'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Leilões">
-<meta name="theme-color" content="#0f6b5c">
+<meta name="theme-color" content="#172033">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icone-180.png">
 <title>Mapa de Leilões</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<style>
-  :root { --bg:#f6f5f2; --card:#fff; --ink:#1d1d1b; --muted:#6b6a66; --line:#e3e1db; --accent:#0f6b5c; --warn:#b5462a; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#151514; --card:#1f1f1d; --ink:#ecebe7; --muted:#a3a19b; --line:#33322f; } }
-  * { box-sizing:border-box; }
-  [hidden] { display:none !important; }
-  select:disabled { opacity:.55; }
-  html, body { height:100%; }
-  body { margin:0; font:15px/1.4 -apple-system, system-ui, sans-serif; background:var(--bg); color:var(--ink); }
-  header { padding:calc(env(safe-area-inset-top) + 10px) 12px 10px; border-bottom:1px solid var(--line); background:var(--card); }
-  .topo { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
-  h1 { font-size:17px; margin:0; }
-  #contagem { color:var(--muted); font-size:13px; }
-  body { display:flex; flex-direction:column; }
-  .filtros { display:grid; grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:6px; margin-top:6px; }
-  .barra { display:flex; gap:8px; margin-top:8px; }
-  .barra select { flex:1; }
-  #abrirFiltros { display:flex; align-items:center; gap:6px; padding:7px 14px; border:1px solid var(--accent); border-radius:8px;
-                  background:var(--card); color:var(--accent); font:inherit; font-size:16px; font-weight:600; white-space:nowrap; }
-  .badge { background:var(--accent); color:#fff; border-radius:999px; font-size:12px; min-width:20px; padding:0 6px; text-align:center; }
-  .chips { display:flex; gap:6px; overflow-x:auto; margin-top:8px; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
-  .chips:empty { display:none; }
-  .chips::-webkit-scrollbar { display:none; }
-  .chip { flex:0 0 auto; display:flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; border:1px solid var(--line);
-          background:var(--bg); color:var(--ink); font:inherit; font-size:13px; white-space:nowrap; }
-  .chip span { color:var(--muted); font-size:15px; line-height:1; }
-  .painel { position:fixed; inset:0; z-index:2000; display:flex; flex-direction:column; justify-content:flex-end; }
-  .painel-fundo { position:absolute; inset:0; background:rgba(0,0,0,.45); }
-  .painel-caixa { position:relative; max-height:88%; display:flex; flex-direction:column; background:var(--card);
-                  border-radius:16px 16px 0 0; padding:14px 14px calc(12px + env(safe-area-inset-bottom)); }
-  .painel-topo { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; font-size:17px; }
-  .painel-corpo { overflow:auto; -webkit-overflow-scrolling:touch; padding-bottom:8px; }
-  .painel-corpo h3 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:14px 0 2px; }
-  .link { border:0; background:none; color:var(--accent); font:inherit; font-size:15px; }
-  .primario { margin-top:8px; padding:12px; border:0; border-radius:10px; background:var(--accent); color:#fff; font:inherit; font-size:16px; font-weight:600; }
-  @media (min-width: 801px) { .painel { justify-content:flex-start; align-items:flex-end; }
-    .painel-caixa { width:440px; height:100%; max-height:none; border-radius:0; } }
-  select, input { width:100%; min-width:0; padding:7px 9px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink); font:inherit; font-size:16px; text-overflow:ellipsis; }
-  main { flex:1; min-height:0; display:grid; grid-template-columns: 1fr 420px; }
-  #mapa { height:100%; }
-  #lista { overflow:auto; border-left:1px solid var(--line); -webkit-overflow-scrolling:touch; padding-bottom:env(safe-area-inset-bottom); }
-  .item { padding:12px 14px; border-bottom:1px solid var(--line); cursor:pointer; background:var(--card); }
-  .item.ativo { outline:2px solid var(--accent); outline-offset:-2px; }
-  .linha { display:flex; justify-content:space-between; align-items:center; gap:8px; }
-  .preco { font-weight:600; }
-  .desc { color:var(--accent); font-weight:600; }
-  .desc.nulo { color:var(--muted); font-weight:400; font-size:13px; }
-  .ficha { margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); font-size:14px; }
-  .ficha a { display:inline-block; margin-top:6px; color:var(--accent); }
-  .links { display:flex; flex-wrap:wrap; gap:4px 16px; margin-top:6px; }
-  .dica { font-size:13px; color:var(--muted); border-left:3px solid var(--accent); padding-left:8px; margin:6px 0; }
-  .carac { color:var(--ink); font-size:13px; margin-top:2px; }
-  .meta, .motivos { color:var(--muted); font-size:13px; }
-  .score { min-width:36px; text-align:center; border-radius:999px; padding:1px 8px; font-weight:600; color:#fff; font-size:13px; }
-  .banco { font-size:11px; font-weight:600; color:var(--muted); border:1px solid var(--line); border-radius:4px; padding:0 5px; margin-left:6px; }
-  .pracas { margin:6px 0; font-size:13px; }
-  .pracas div { display:flex; justify-content:space-between; gap:8px; }
-  .pracas .passou { color:var(--muted); text-decoration:line-through; }
-  #premissas { margin-top:16px; font-size:14px; }
-  #premissas summary { color:var(--accent); cursor:pointer; }
-  #premissas label { display:flex; flex-direction:column; gap:2px; font-size:12px; color:var(--muted); }
-  .custo { margin:8px 0; padding:8px; border:1px solid var(--line); border-radius:8px; font-size:13px; }
-  .custo div { display:flex; justify-content:space-between; gap:8px; }
-  .custo .total { font-weight:600; border-top:1px solid var(--line); margin-top:4px; padding-top:4px; }
-  .novo { font-size:11px; font-weight:600; color:#fff; background:var(--accent); border-radius:4px; padding:1px 5px; margin-left:6px; }
-  .alerta { color:var(--warn); font-size:13px; }
-  .leaflet-popup-content { font-size:14px; }
-  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background:var(--card); color:var(--ink); }
-  .leaflet-container a.leaflet-popup-close-button { color:var(--muted); }
-  .leaflet-popup-content a { color:var(--accent); }
-  @media (max-width: 800px) { .filtros { grid-template-columns:1fr 1fr; } main { grid-template-columns:1fr; grid-template-rows: 50% 50%; } #lista { border-left:0; border-top:1px solid var(--line); } }
-</style>
+<link rel="stylesheet" href="estilo.css">
 </head>
 <body>
-<header>
-  <div class="topo"><h1>Mapa de Leilões</h1><span id="contagem">carregando…</span></div>
-  <div class="barra">
-    <button id="abrirFiltros" type="button" aria-haspopup="dialog">Filtros<span id="nFiltros" class="badge" hidden></span></button>
+<header class="topo">
+  <div class="marca">
+    <h1>Mapa de Leilões</h1>
+    <span id="atualizado" class="sutil"></span>
+  </div>
+  <div class="busca-topo" id="lugarBusca">
+    <input id="busca" type="search" placeholder="Buscar rua, bairro ou cidade" aria-label="Buscar rua, bairro ou cidade" autocomplete="off">
+  </div>
+  <div class="acoes">
+    <span id="contagem" class="sutil" aria-live="polite">carregando…</span>
+    <div class="vista" role="group" aria-label="Forma de ver">
+      <button type="button" data-vista="mapa" aria-pressed="true">Mapa</button>
+      <button type="button" data-vista="tabela" aria-pressed="false">Tabela</button>
+    </div>
     <select id="ordem" aria-label="Ordenar">
       <option value="score">Melhor score</option>
       <option value="desconto">Maior desconto</option>
+      <option value="mercado">Mais abaixo do mercado</option>
       <option value="preco">Menor preço</option>
+      <option value="leilao">Leilão mais próximo</option>
       <option value="recentes">Mais recentes</option>
     </select>
+    <button id="exportar" type="button" class="secundario">Exportar CSV</button>
+    <button id="abrirFiltros" type="button" class="secundario so-celular" aria-haspopup="dialog">Filtros<span id="nFiltros" class="badge" hidden></span></button>
   </div>
   <div id="chips" class="chips" aria-label="Filtros ativos"></div>
 </header>
-<div id="painel" class="painel" hidden role="dialog" aria-modal="true" aria-labelledby="tPainel">
-  <div class="painel-fundo" id="fundoPainel"></div>
-  <div class="painel-caixa">
-    <div class="painel-topo">
-      <strong id="tPainel">Filtros</strong>
-      <button id="limpar" type="button" class="link">Limpar tudo</button>
+
+<div class="corpo">
+  <aside id="painel" class="painel" hidden role="dialog" aria-labelledby="tPainel">
+    <div class="painel-fundo" id="fundoPainel"></div>
+    <div class="painel-caixa">
+      <div class="painel-topo">
+        <h2 id="tPainel">Filtros</h2>
+        <button id="limpar" type="button" class="link">Limpar tudo</button>
+      </div>
+      <div class="painel-corpo">
+        <fieldset>
+          <legend>Onde</legend>
+          <label>Banco<select id="banco"><option value="">Todos</option></select></label>
+          <label>Estado<select id="filtro"><option value="">SP e SC</option></select></label>
+          <label>Cidade<select id="cidade"><option value="">Todas</option></select></label>
+          <label>Bairro<select id="bairro" disabled><option value="">Escolha a cidade</option></select></label>
+        </fieldset>
+        <fieldset>
+          <legend>Imóvel</legend>
+          <label>Tipo<select id="tipo"><option value="">Todos</option></select></label>
+          <div class="par">
+            <label>Quartos<select id="quartos">
+              <option value="">Todos</option><option value="1">1 ou mais</option><option value="2">2 ou mais</option><option value="3">3 ou mais</option>
+            </select></label>
+            <label>Vagas<select id="vagas">
+              <option value="">Todas</option><option value="0">Sem vaga</option><option value="1">1 ou mais</option><option value="2">2 ou mais</option>
+            </select></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Preço e condições</legend>
+          <label>Modalidade<select id="modalidade"><option value="">Todas</option></select></label>
+          <div class="par">
+            <label>Desconto<select id="desconto_min">
+              <option value="">Qualquer</option><option value="0.5">Com desconto</option><option value="20">20% ou mais</option>
+              <option value="30">30% ou mais</option><option value="40">40% ou mais</option><option value="50">50% ou mais</option>
+            </select></label>
+            <label>Preço até (R$)<input id="preco_max" type="number" inputmode="numeric" step="10000" placeholder="350000"></label>
+          </div>
+          <label>Financiamento<select id="financiamento">
+            <option value="">Tanto faz</option><option value="Sim">Aceita financiamento</option><option value="Não">Só à vista</option>
+          </select></label>
+          <label>Entrou no mapa<select id="periodo">
+            <option value="">Qualquer data</option><option value="1">Últimas 24 horas</option><option value="7">Últimos 7 dias</option>
+          </select></label>
+        </fieldset>
+        <details id="premissas">
+          <summary>Premissas de custo e financiamento</summary>
+          <div class="par">
+            <label>ITBI (%)<input id="p_itbi" type="number" inputmode="decimal" step="0.1"></label>
+            <label>Cartório (%)<input id="p_cartorio" type="number" inputmode="decimal" step="0.1"></label>
+            <label>Comissão (%)<input id="p_comissao" type="number" inputmode="decimal" step="0.5"></label>
+            <label>Entrada (%)<input id="p_entrada" type="number" inputmode="decimal" step="5"></label>
+            <label>Juros (% a.a.)<input id="p_juros" type="number" inputmode="decimal" step="0.1"></label>
+            <label>Prazo (meses)<input id="p_prazo" type="number" inputmode="numeric" step="12"></label>
+          </div>
+          <p class="nota">Estimativas. ITBI e cartório variam por cidade; a comissão vale só para leilões. Ficam salvas só neste navegador.</p>
+        </details>
+      </div>
+      <button id="verResultados" type="button" class="primario so-celular">Ver imóveis</button>
     </div>
-    <div class="painel-corpo">
-      <h3>Onde</h3>
-      <div class="filtros">
-        <select id="banco" aria-label="Banco"><option value="">Banco: todos</option></select>
-        <select id="filtro" aria-label="Estado"><option value="">SP e SC</option></select>
-        <select id="cidade" aria-label="Cidade"><option value="">Cidade: todas</option></select>
-        <select id="bairro" aria-label="Bairro" disabled><option value="">Bairro: escolha a cidade</option></select>
-      </div>
-      <h3>Imóvel</h3>
-      <div class="filtros">
-        <select id="tipo" aria-label="Tipo"><option value="">Tipo: todos</option></select>
-        <select id="quartos" aria-label="Quartos">
-          <option value="">Quartos: todos</option>
-          <option value="1">1+ quarto</option><option value="2">2+ quartos</option><option value="3">3+ quartos</option>
-        </select>
-        <select id="vagas" aria-label="Vagas">
-          <option value="">Vagas: todas</option>
-          <option value="0">Sem vaga</option><option value="1">1+ vaga</option><option value="2">2+ vagas</option>
-        </select>
-        <input id="busca" placeholder="Bairro, rua, tipo…" aria-label="Busca">
-      </div>
-      <h3>Preço e condições</h3>
-      <div class="filtros">
-        <select id="modalidade" aria-label="Modalidade"><option value="">Modalidade: todas</option></select>
-        <select id="desconto_min" aria-label="Desconto mínimo">
-          <option value="">Todo desconto</option>
-          <option value="0.5">Com desconto</option>
-          <option value="20">≥ 20% desc.</option>
-          <option value="30">≥ 30% desc.</option>
-          <option value="40">≥ 40% desc.</option>
-          <option value="50">≥ 50% desc.</option>
-        </select>
-        <select id="financiamento" aria-label="Financiamento">
-          <option value="">Financiamento: todos</option>
-          <option value="Sim">Aceita financiamento</option>
-          <option value="Não">Só à vista</option>
-        </select>
-        <input id="preco_max" type="number" inputmode="numeric" placeholder="Preço máx. (R$)" aria-label="Preço máximo">
-        <select id="periodo" aria-label="Período"><option value="">Qualquer data</option><option value="1">Novos (24h)</option><option value="7">Últimos 7 dias</option></select>
-      </div>
-      <details id="premissas">
-        <summary>Premissas de custo e financiamento</summary>
-        <div class="filtros">
-          <label>ITBI (%)<input id="p_itbi" type="number" inputmode="decimal" step="0.1"></label>
-          <label>Cartório e registro (%)<input id="p_cartorio" type="number" inputmode="decimal" step="0.1"></label>
-          <label>Comissão do leiloeiro (%)<input id="p_comissao" type="number" inputmode="decimal" step="0.5"></label>
-          <label>Entrada (%)<input id="p_entrada" type="number" inputmode="decimal" step="5"></label>
-          <label>Juros (% ao ano)<input id="p_juros" type="number" inputmode="decimal" step="0.1"></label>
-          <label>Prazo (meses)<input id="p_prazo" type="number" inputmode="numeric" step="12"></label>
-        </div>
-        <p class="meta">Estimativas. ITBI e cartório variam por cidade; a comissão vale só para leilões. Os valores ficam salvos só neste aparelho.</p>
-      </details>
-    </div>
-    <button id="verResultados" type="button" class="primario">Ver imóveis</button>
-  </div>
+  </aside>
+
+  <main id="vistaMapa" class="vista-mapa">
+    <div id="mapa" aria-label="Mapa dos imóveis"></div>
+    <section id="lateral" class="lateral" aria-label="Resultados">
+      <div id="lista" class="lista"></div>
+      <article id="detalhe" class="detalhe" hidden tabindex="-1"></article>
+    </section>
+  </main>
+
+  <section id="vistaTabela" class="vista-tabela" hidden aria-label="Tabela de imóveis">
+    <table id="tabela">
+      <thead><tr></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p id="tabelaNota" class="nota"></p>
+  </section>
 </div>
-<main>
-  <div id="mapa"></div>
-  <div id="lista"></div>
-</main>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="app.js"></script>
 </body>
