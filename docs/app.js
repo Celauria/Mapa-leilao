@@ -269,6 +269,7 @@ function render() {
     m.addTo(camada); marcadores[im.id] = m; pts.push([im.lat, im.lon]);
   });
   document.getElementById("contagem").textContent = `${fmt(dados.length)} imóveis · ${fmt(pts.length)} no mapa`;
+  atualizarChips(dados.length);
   if (pts.length) mapa.fitBounds(pts, { padding: [24, 24], maxZoom: 14 });
 }
 
@@ -283,10 +284,10 @@ fetch("imoveis.json", { cache: "no-cache" }).then(r => r.json()).then(j => {
 }));
 
 let t;
-document.querySelectorAll(".filtros select, .filtros input").forEach(e =>
+// Filtros (no painel) e ordenação (na barra) atualizam a lista; premissas têm tratamento próprio.
+document.querySelectorAll("#painel .filtros select, #painel .filtros input:not([id^=p_]), #ordem").forEach(e =>
   e.addEventListener(e.tagName === "SELECT" ? "change" : "input", () => { clearTimeout(t); t = setTimeout(render, e.tagName === "SELECT" ? 0 : 300); }));
 
-const prem = document.getElementById("premissas");
 Object.keys(PADRAO).forEach(k => {
   const inp = document.getElementById("p_" + k);
   inp.value = PREM[k];
@@ -298,11 +299,42 @@ Object.keys(PADRAO).forEach(k => {
   });
 });
 
-const botaoMais = document.getElementById("mais"), extras = document.getElementById("extras");
-botaoMais.addEventListener("click", () => {
-  extras.hidden = !extras.hidden;
-  prem.hidden = extras.hidden;
-  botaoMais.setAttribute("aria-expanded", String(!extras.hidden));
-  botaoMais.textContent = extras.hidden ? "Mais filtros" : "Menos filtros";
-  setTimeout(() => mapa.invalidateSize(), 50);
+// ---- Painel de filtros (abre de baixo no celular, de lado no computador) ----
+const painel = document.getElementById("painel"), botaoFiltros = document.getElementById("abrirFiltros");
+function abrirPainel() { painel.hidden = false; document.getElementById("verResultados").focus(); }
+function fecharPainel() { painel.hidden = true; botaoFiltros.focus(); setTimeout(() => mapa.invalidateSize(), 50); }
+botaoFiltros.addEventListener("click", abrirPainel);
+document.getElementById("verResultados").addEventListener("click", fecharPainel);
+document.getElementById("fundoPainel").addEventListener("click", fecharPainel);
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !painel.hidden) fecharPainel(); });
+document.getElementById("limpar").addEventListener("click", () => {
+  Object.keys(TESTES).forEach(id => { document.getElementById(id).value = ""; });
+  render();
 });
+
+// Etiquetas dos filtros ativos (toque remove) + contador no botão e no "Ver N imóveis"
+const semContagem = t => t.replace(/\s*\([\d.]+\)\s*$/, "");
+function rotuloFiltro(id, v) {
+  const el_ = document.getElementById(id);
+  if (id === "preco_max") return `Até ${brl(+v)}`;
+  if (id === "busca") return `“${v}”`;
+  return semContagem(el_.options[el_.selectedIndex]?.textContent || v);
+}
+function atualizarChips(total) {
+  const vals = valores(), chips = document.getElementById("chips");
+  chips.replaceChildren(...Object.entries(vals).map(([id, v]) => {
+    const c = el("button", "chip", rotuloFiltro(id, v));
+    c.type = "button"; c.setAttribute("aria-label", `Remover filtro ${rotuloFiltro(id, v)}`);
+    c.append(el("span", null, "×"));
+    c.addEventListener("click", () => {
+      document.getElementById(id).value = "";
+      if (id === "cidade" || id === "filtro") document.getElementById("bairro").value = "";
+      render();
+    });
+    return c;
+  }));
+  const n = Object.keys(vals).length, badge = document.getElementById("nFiltros");
+  badge.hidden = n === 0; badge.textContent = n;
+  document.getElementById("verResultados").textContent = `Ver ${fmt(total)} imóve${total === 1 ? "l" : "is"}`;
+  setTimeout(() => mapa.invalidateSize(), 0);
+}
