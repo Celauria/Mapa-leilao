@@ -1,8 +1,10 @@
 name: Leilões — coleta diária
 
 on:
-  schedule:
-    - cron: "40 10 * * *"   # 07h40 em Brasília (UTC-3)
+  schedule:                  # 3 horários: o GitHub às vezes atrasa ou pula um agendamento
+    - cron: "17 10 * * *"   # 07h17 em Brasília (UTC-3)
+    - cron: "17 15 * * *"   # 12h17
+    - cron: "17 22 * * *"   # 19h17
   workflow_dispatch: {}      # botão "Run workflow" para rodar na hora
   push:                      # roda quando o código ou os filtros mudam
     branches: [main]

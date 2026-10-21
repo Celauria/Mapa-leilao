@@ -30,18 +30,25 @@ Ver o que entrou nas últimas 24h dentro do seu filtro:
 python -m leiloes.cli novos --cidade "SAO PAULO" --desconto-min 40 --preco-max 500000
 ```
 
-## Rodar na nuvem (GitHub) e usar no iPhone
+## Como funciona hoje
 
-O workflow `.github/workflows/leiloes.yml` roda todo dia às 7h40 (horário de Brasília). Ele coleta, envia o alerta, geocodifica e atualiza o mapa em `docs/`. Nenhum computador precisa ficar ligado.
+| Parte | Onde roda | Quando |
+|---|---|---|
+| Listas da Caixa (SP e SC) | **No seu Windows** (a Caixa bloqueia servidores) | Ao entrar no Windows, ao desbloquear e às 8h — no máximo 1x por dia |
+| Bancos (Santander, Bradesco, Itaú via Zuk), geocodificação, ITBI, estações, mapa | GitHub Actions | 07h17, 12h17 e 19h17, e sempre que chegam listas novas |
+| Site (computador e celular) | GitHub Pages: https://celauria.github.io/Mapa-leilao/ | Sempre |
 
-1. **Secrets** (Settings → Secrets and variables → Actions → New repository secret): `TELEGRAM_TOKEN` e `TELEGRAM_CHAT_ID`.
-2. **Mapa** (Settings → Pages): Source = *Deploy from a branch*, Branch = `main`, pasta `/docs`.
-3. **Primeira execução:** aba Actions → *Leilões — coleta diária* → *Run workflow*.
-4. **No iPhone:** abra o endereço do Pages no Safari → Compartilhar → *Adicionar à Tela de Início*.
+### Instalar o coletor no Windows
 
-O GitHub Pages é público em contas gratuitas. A página tem `noindex` e só mostra dados que a Caixa já publica, mas qualquer pessoa com o link consegue ver. Os tokens ficam nos Secrets e nunca vão para o repositório.
+No PowerShell (não precisa de administrador):
 
-Se a Caixa bloquear os servidores do GitHub, o passo de coleta falha e você recebe um aviso no Telegram.
+```powershell
+irm https://raw.githubusercontent.com/Celauria/Mapa-leilao/main/instalar_windows.ps1 | iex
+```
+
+O instalador confere Python e Git (instala pelo winget se faltar), baixa o repositório em `%USERPROFILE%\Mapa-leilao`,
+roda a primeira coleta (o Git pede login no GitHub uma vez) e agenda a tarefa **"Mapa de Leiloes - coleta"**.
+Log em `%LOCALAPPDATA%\MapaLeiloes\coleta.log`. Para rodar na hora: `py -3 -m leiloes.coletor_local --forcar`.
 
 ## Alerta diário
 
@@ -53,9 +60,7 @@ python -m leiloes.cli alerta           # envia por Telegram e/ou e-mail
 ```
 
 1. Copie `.env.exemplo` para `.env` e preencha o Telegram (recomendado, chega no celular) ou o e-mail.
-2. Agende uma vez:
-   - Windows: `.\agendar_windows.ps1`
-   - Mac/Linux: `bash agendar_cron.sh`
+2. A coleta já é agendada: no GitHub (3x por dia) e no seu Windows (veja acima).
 
 A primeira execução só registra a linha de base e informa quantos imóveis já batem com os filtros. Use o mapa para olhar esse estoque. Dali em diante, chega só o que mudou. Cada execução gera também um relatório em `relatorios/alerta_AAAA-MM-DD.html`.
 
